@@ -1,7 +1,0 @@
-#include "$(basename mixed_precision.cpp .cpp).hpp"
-
-namespace gms {
-
-void $(basename mixed_precision.cpp .cpp)_stub() {}
-
-} // namespace gms
