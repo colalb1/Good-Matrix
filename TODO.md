@@ -26,7 +26,7 @@ analyze(A)  ─► FeatureReport {n,m,nnz,density,sym,spd?,κ̂,bandwidth,diag_d
                  ▼
            solve(A, b or B) ─► (x, SolverReport{method,precond,precision,iters,rel_res,time_ms,reason,fallbacks})
 
-Repo layout (updated)
+Repo layout
 ---------------------
 gms/
   CMakeLists.txt
