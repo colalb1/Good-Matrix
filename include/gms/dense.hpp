@@ -74,32 +74,41 @@ bool cholesky_inplace_lower(T *A, std::size_t n, std::size_t row_stride,
   return true;
 }
 
+// Solves Ly = b for y (forward substitution, unit diagonal).
 template <class T>
 void forward_subst_lower_unitdiag_false(const T *L, std::size_t n,
                                         std::size_t row_stride, const T *b, T *y) {
   for (std::size_t i = 0; i < n; ++i) {
-    T s = 0;
+    T partial_sum = std::inner_product(
+      L + i * row_stride,
+      L + i * row_stride + i,
+      y,
+      T{0}
+    );
 
-    for (std::size_t j = 0; j < i; ++j) {
-      s += L[i * row_stride + j] * y[j];
-    }
-
-    y[i] = (b[i] - s) / L[i * row_stride + i];
+    // Computes $y_i = (b_i - (\sum_{j=0}^{i - 1} L_ij * y_j)) / L_ii$
+    y[i] = (b[i] - partial_sum) / L[i * row_stride + i];
   }
 }
 
+// Solves Lᵀx = y for x (backward substitution, unit diagonal).
 template <class T>
 void backward_subst_upper_from_lower_transpose(const T *L, std::size_t n,
                                                std::size_t row_stride, const T *y,
                                                T *x) {
   for (std::ptrdiff_t i = static_cast<std::ptrdiff_t>(n) - 1; i >= 0; --i) {
-    T s = 0;
+    T partial_sum = std::inner_product(
+      L + (i + 1) * row_stride + i,
+      L + n * row_stride + i,
+      x + i + 1,
+      T{0},
+      std::plus<>{},
+      [](T l_ji, T x_j) {return l_ji * x_j;}
+    );
 
-    for (std::size_t j = static_cast<std::size_t>(i) + 1; j < n; ++j) {
-      s += L[j * row_stride + static_cast<std::size_t>(i)] * x[j];
-    }
+    // Computes $x_i = (y_i - (\sum_{j=i + 1}^{n - 1} L_ji * x_j)) / L_ii$
     x[static_cast<std::size_t>(i)] =
-        (y[static_cast<std::size_t>(i)] - s) /
+        (y[static_cast<std::size_t>(i)] - partial_sum) /
         L[static_cast<std::size_t>(i) * row_stride + static_cast<std::size_t>(i)];
   }
 }
