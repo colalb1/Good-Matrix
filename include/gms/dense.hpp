@@ -106,10 +106,16 @@ template <class T>
 bool cholesky_solve_inplace(T *A, std::size_t n, std::size_t row_stride,
                             const T *b, T *x,
                             T eps_rel = static_cast<T>(1e-14)) {
+  // Factorize A to LL^T
   if (!cholesky_inplace_lower(A, n, row_stride, eps_rel))
     return false;
+
+  // Solve Ly = b (result y is stored in x)
   forward_subst_lower_unitdiag_false(A, n, row_stride, b, x);
+
+  // Solve L^Tx = y (result x is stored in x)
   backward_subst_upper_from_lower_transpose(A, n, row_stride, x, x);
+  
   return true;
 }
 
