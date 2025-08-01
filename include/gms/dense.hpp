@@ -190,13 +190,14 @@ void forward_subst_lower_unitdiag_true(const T *L, std::size_t n,
                                        std::size_t row_stride, const T *b,
                                        T *z) {
   for (std::size_t i = 0; i < n; ++i) {
-    T s = 0;
+    T inner_product = std::inner_product(
+      L + i * row_stride,
+      L + i * row_stride + i,
+      z,
+      T{0}
+    );
 
-    for (std::size_t j = 0; j < i; ++j) {
-      s += L[i * row_stride + j] * z[j];
-    }
-
-    z[i] = b[i] - s;
+    z[i] = b[i] - inner_product;
   }
 }
 
@@ -210,20 +211,22 @@ template <class T> void scale_by_diag(const T *d, std::size_t n, T *y) {
 }
 
 /**
- * @brief Solves Lᵀx = y for x (backward substitution, unit diagonal).
+ * @brief Solves L^Tx = y for x (backward substitution, unit diagonal).
  */
 template <class T>
 void backward_subst_upper_from_lower_transpose_unitdiag_true(
     const T *L, std::size_t n, std::size_t row_stride, const T *y, T *x) {
   for (std::ptrdiff_t i = static_cast<std::ptrdiff_t>(n) - 1; i >= 0; --i) {
-    T s = 0;
-    const auto ui = static_cast<std::size_t>(i);
+    const std::size_t ui = static_cast<std::size_t>(i);
 
-    for (std::size_t j = ui + 1; j < n; ++j) {
-      s += L[j * row_stride + ui] * x[j];
-    }
+    T inner_product = std::inner_product(
+        L + (ui + 1) * row_stride + ui,     // start of L[j][i] for j = ui + 1
+        L + n * row_stride + ui,            // one past last element L[n - 1][i]
+        x + ui + 1,                        // x[j] starting from j = ui + 1
+        T{0}
+    );
 
-    x[ui] = y[ui] - s;
+    x[ui] = y[ui] - inner_product;
   }
 }
 
