@@ -16,93 +16,101 @@ namespace gms {
  * @details The lower triangular part of A is replaced by the Cholesky factor L.
  * @param A Pointer to the matrix data (row-major).
  * @param n Dimension of the matrix.
- * @param lda Leading dimension of A.
+ * @param row_stride Leading dimension of A.
  * @return true on success, false if the matrix is not positive definite.
  */
 template <class T>
-bool cholesky_inplace_lower(T *A, std::size_t n, std::size_t lda,
+bool cholesky_inplace_lower(T *A, std::size_t n, std::size_t row_stride,
                             T eps_rel = static_cast<T>(1e-14)) {
   static_assert(std::is_floating_point_v<T>,
                 "Cholesky requires floating point type");
-  if (!A || lda < n) {
-    throw std::invalid_argument("cholesky_inplace_lower: invalid A/lda");
+  if (!A || row_stride < n) {
+    throw std::invalid_argument("cholesky_inplace_lower: invalid A/row_stride");
   }
 
   const T eps = std::numeric_limits<T>::epsilon();
   T max_diag = static_cast<T>(0);
 
   for (std::size_t k = 0; k < n; ++k) {
-    max_diag = std::max(max_diag, std::abs(A[k * lda + k]));
+    // Track the largest diagonal value seen so far to define relative tolerance
+    max_diag = std::max(max_diag, std::abs(A[k * row_stride + k]));
 
-    T sum = 0;
+    // Compute $d_k = A_{kk} - \sum_{j=0}^{k-1} L_{kj}^2$
+    T residual_diag_correction = 0;
     for (std::size_t j = 0; j < k; ++j) {
-      const T L_kj = A[k * lda + j];
-      sum += L_kj * L_kj;
+      const T L_kj = A[k * row_stride + j];
+      residual_diag_correction += L_kj * L_kj;
     }
-    T d = A[k * lda + k] - sum;
+    T d = A[k * row_stride + k] - residual_diag_correction;
 
+    // Check if the matrix is positive definite
     const T tol = std::max(eps_rel * max_diag, T(10) * eps * max_diag);
     if (d <= tol) {
       return false;
     }
 
+    // Compute $L_kk = \sqrt{d}$ and store it in A
     const T L_kk = std::sqrt(d);
-    A[k * lda + k] = L_kk;
+    A[k * row_stride + k] = L_kk;
 
+    // Compute $L_ik = \frac{1}{L_kk}(A_ik - \sum_{j=0)^{k - 1} L_ij * L_kj$
     for (std::size_t i = k + 1; i < n; ++i) {
-      T s = 0;
+      T inner_product = 0;
 
       for (std::size_t j = 0; j < k; ++j) {
-        s += A[i * lda + j] * A[k * lda + j];
+        inner_product += A[i * row_stride + j] * A[k * row_stride + j];
       }
 
-      A[i * lda + k] = (A[i * lda + k] - s) / L_kk;
+      A[i * row_stride + k] = (A[i * row_stride + k] - inner_product) / L_kk;
     }
 
+  // Zero out the upper triangle
+  // This is unnecessary, but more of a sanity check
     for (std::size_t j = k + 1; j < n; ++j) {
-      A[k * lda + j] = 0;
+      A[k * row_stride + j] = 0;
     }
   }
+
   return true;
 }
 
 template <class T>
 void forward_subst_lower_unitdiag_false(const T *L, std::size_t n,
-                                        std::size_t lda, const T *b, T *y) {
+                                        std::size_t row_stride, const T *b, T *y) {
   for (std::size_t i = 0; i < n; ++i) {
     T s = 0;
 
     for (std::size_t j = 0; j < i; ++j) {
-      s += L[i * lda + j] * y[j];
+      s += L[i * row_stride + j] * y[j];
     }
 
-    y[i] = (b[i] - s) / L[i * lda + i];
+    y[i] = (b[i] - s) / L[i * row_stride + i];
   }
 }
 
 template <class T>
 void backward_subst_upper_from_lower_transpose(const T *L, std::size_t n,
-                                               std::size_t lda, const T *y,
+                                               std::size_t row_stride, const T *y,
                                                T *x) {
   for (std::ptrdiff_t i = static_cast<std::ptrdiff_t>(n) - 1; i >= 0; --i) {
     T s = 0;
 
     for (std::size_t j = static_cast<std::size_t>(i) + 1; j < n; ++j) {
-      s += L[j * lda + static_cast<std::size_t>(i)] * x[j];
+      s += L[j * row_stride + static_cast<std::size_t>(i)] * x[j];
     }
     x[static_cast<std::size_t>(i)] =
         (y[static_cast<std::size_t>(i)] - s) /
-        L[static_cast<std::size_t>(i) * lda + static_cast<std::size_t>(i)];
+        L[static_cast<std::size_t>(i) * row_stride + static_cast<std::size_t>(i)];
   }
 }
 
 template <class T>
-bool cholesky_solve_inplace(T *A, std::size_t n, std::size_t lda, const T *b,
+bool cholesky_solve_inplace(T *A, std::size_t n, std::size_t row_stride, const T *b,
                             T *x, T eps_rel = static_cast<T>(1e-14)) {
-  if (!cholesky_inplace_lower(A, n, lda, eps_rel))
+  if (!cholesky_inplace_lower(A, n, row_stride, eps_rel))
     return false;
-  forward_subst_lower_unitdiag_false(A, n, lda, b, x);
-  backward_subst_upper_from_lower_transpose(A, n, lda, x, x);
+  forward_subst_lower_unitdiag_false(A, n, row_stride, b, x);
+  backward_subst_upper_from_lower_transpose(A, n, row_stride, x, x);
   return true;
 }
 
@@ -117,31 +125,31 @@ bool cholesky_solve_inplace(T *A, std::size_t n, std::size_t lda, const T *b,
  * @param A Pointer to the matrix data (row-major). Will be modified.
  * @param d Pointer to an array of size n to store the diagonal of D.
  * @param n Dimension of the matrix.
- * @param lda Leading dimension of A.
+ * @param row_stride Leading dimension of A.
  * @return true on success, false if the matrix is singular.
  */
 template <class T>
-bool ldlt_inplace_lower(T *A, T *d, std::size_t n, std::size_t lda,
+bool ldlt_inplace_lower(T *A, T *d, std::size_t n, std::size_t row_stride,
                         T eps_rel = static_cast<T>(1e-14)) {
   static_assert(std::is_floating_point_v<T>,
                 "LDL^T requires floating point type");
-  if (!A || !d || lda < n)
-    throw std::invalid_argument("ldlt_inplace_lower: invalid A/d/lda");
+  if (!A || !d || row_stride < n)
+    throw std::invalid_argument("ldlt_inplace_lower: invalid A/d/row_stride");
 
   const T eps = std::numeric_limits<T>::epsilon();
   T max_diag_abs = static_cast<T>(0);
 
   for (std::size_t j = 0; j < n; ++j) {
-    max_diag_abs = std::max(max_diag_abs, std::abs(A[j * lda + j]));
+    max_diag_abs = std::max(max_diag_abs, std::abs(A[j * row_stride + j]));
 
     T sum_ld = 0;
 
     for (std::size_t k = 0; k < j; ++k) {
-      const T L_jk = A[j * lda + k];
+      const T L_jk = A[j * row_stride + k];
       sum_ld += L_jk * L_jk * d[k];
     }
 
-    const T D_j = A[j * lda + j] - sum_ld;
+    const T D_j = A[j * row_stride + j] - sum_ld;
 
     const T tol = std::max(eps_rel * max_diag_abs, T(10) * eps * max_diag_abs);
 
@@ -154,10 +162,10 @@ bool ldlt_inplace_lower(T *A, T *d, std::size_t n, std::size_t lda,
       T sum_l_ld = 0;
 
       for (std::size_t k = 0; k < j; ++k) {
-        sum_l_ld += A[i * lda + k] * A[j * lda + k] * d[k];
+        sum_l_ld += A[i * row_stride + k] * A[j * row_stride + k] * d[k];
       }
 
-      A[i * lda + j] = (A[i * lda + j] - sum_l_ld) / D_j;
+      A[i * row_stride + j] = (A[i * row_stride + j] - sum_l_ld) / D_j;
     }
   }
   return true;
@@ -168,12 +176,12 @@ bool ldlt_inplace_lower(T *A, T *d, std::size_t n, std::size_t lda,
  */
 template <class T>
 void forward_subst_lower_unitdiag_true(const T *L, std::size_t n,
-                                       std::size_t lda, const T *b, T *z) {
+                                       std::size_t row_stride, const T *b, T *z) {
   for (std::size_t i = 0; i < n; ++i) {
     T s = 0;
 
     for (std::size_t j = 0; j < i; ++j) {
-      s += L[i * lda + j] * z[j];
+      s += L[i * row_stride + j] * z[j];
     }
 
     z[i] = b[i] - s;
@@ -195,14 +203,14 @@ template <class T> void scale_by_diag(const T *d, std::size_t n, T *y) {
 template <class T>
 void backward_subst_upper_from_lower_transpose_unitdiag_true(const T *L,
                                                              std::size_t n,
-                                                             std::size_t lda,
+                                                             std::size_t row_stride,
                                                              const T *y, T *x) {
   for (std::ptrdiff_t i = static_cast<std::ptrdiff_t>(n) - 1; i >= 0; --i) {
     T s = 0;
     const auto ui = static_cast<std::size_t>(i);
 
     for (std::size_t j = ui + 1; j < n; ++j) {
-      s += L[j * lda + ui] * x[j];
+      s += L[j * row_stride + ui] * x[j];
     }
     
     x[ui] = y[ui] - s;
@@ -215,19 +223,19 @@ void backward_subst_upper_from_lower_transpose_unitdiag_true(const T *L,
  * D.
  */
 template <class T>
-bool ldlt_solve_inplace(T *A, std::size_t n, std::size_t lda, const T *b, T *x,
+bool ldlt_solve_inplace(T *A, std::size_t n, std::size_t row_stride, const T *b, T *x,
                         T *d, T eps_rel = static_cast<T>(1e-14)) {
-  if (!ldlt_inplace_lower(A, d, n, lda, eps_rel))
+  if (!ldlt_inplace_lower(A, d, n, row_stride, eps_rel))
     return false;
 
   // Solve Lz = b (result z is stored in x)
-  forward_subst_lower_unitdiag_true(A, n, lda, b, x);
+  forward_subst_lower_unitdiag_true(A, n, row_stride, b, x);
 
   // Solve Dy = z (result y is stored in x)
   scale_by_diag(d, n, x);
 
   // Solve L^T x = y (final result x is stored in x)
-  backward_subst_upper_from_lower_transpose_unitdiag_true(A, n, lda, x, x);
+  backward_subst_upper_from_lower_transpose_unitdiag_true(A, n, row_stride, x, x);
 
   return true;
 }
