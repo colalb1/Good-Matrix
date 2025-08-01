@@ -115,7 +115,7 @@ bool cholesky_solve_inplace(T *A, std::size_t n, std::size_t row_stride,
 
   // Solve L^Tx = y (result x is stored in x)
   backward_subst_upper_from_lower_transpose(A, n, row_stride, x, x);
-  
+
   return true;
 }
 
@@ -145,30 +145,36 @@ bool ldlt_inplace_lower(T *A, T *d, std::size_t n, std::size_t row_stride,
   T max_diag_abs = static_cast<T>(0);
 
   for (std::size_t j = 0; j < n; ++j) {
+    // Numerical tolerance is defined relative to the diagonal element
     max_diag_abs = std::max(max_diag_abs, std::abs(A[j * row_stride + j]));
 
-    T sum_ld = 0;
+    // Compute the diagonal element $D_j = A_jj - \sum_{k=0}^{j-1} L_jk ^ 2 * d_k$
+    T sum_lower_diag = std::transform_reduce(
+        A + j * row_stride, A + j * row_stride + j,  // L_jk
+        d,                                           // d_k
+        T{0},
+        std::plus<>{},
+        [](const T& val, const T& diag) { return val * val * diag; }
+    );
 
-    for (std::size_t k = 0; k < j; ++k) {
-      const T L_jk = A[j * row_stride + k];
-      sum_ld += L_jk * L_jk * d[k];
-    }
-
-    const T D_j = A[j * row_stride + j] - sum_ld;
+    const T D_j = A[j * row_stride + j] - sum_lower_diag;
 
     const T tol = std::max(eps_rel * max_diag_abs, T(10) * eps * max_diag_abs);
 
+    // If the diagonal element is too small, the matrix is singular
     if (std::abs(D_j) <= tol)
       return false;
 
     d[j] = D_j;
 
+    // Compute the lower triangular elements $L_ij = (A_ij - \sum_{k=0}^{j - 1} L_ik * L_jk * d_k) / D_j$
     for (std::size_t i = j + 1; i < n; ++i) {
-      T sum_l_ld = 0;
-
-      for (std::size_t k = 0; k < j; ++k) {
-        sum_l_ld += A[i * row_stride + k] * A[j * row_stride + k] * d[k];
-      }
+      T sum_l_ld = std::accumulate(
+          size_t{0}, size_t{j}, T{0},
+          [&](T acc, std::size_t k) {
+            return acc + row_i[k] * row_j[k] * d[k];
+          }
+      );
 
       A[i * row_stride + j] = (A[i * row_stride + j] - sum_l_ld) / D_j;
     }
