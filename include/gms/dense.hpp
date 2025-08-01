@@ -36,7 +36,7 @@ bool cholesky_inplace_lower(T *A, std::size_t n, std::size_t row_stride,
     // Track the largest diagonal value seen so far to define relative tolerance
     max_diag = std::max(max_diag, std::abs(A[k * row_stride + k]));
 
-    T* row_start = A + k * row_stride;
+    T *row_start = A + k * row_stride;
 
     // Compute $d_k = A_{kk} - \sum_{j=0}^{k-1} L_{kj}^2$
     T residual_diag_correction =
@@ -171,6 +171,9 @@ bool ldlt_inplace_lower(T *A, T *d, std::size_t n, std::size_t row_stride,
     // Compute the lower triangular elements $L_ij = (A_ij - \sum_{k=0}^{j - 1}
     // L_ik * L_jk * d_k) / D_j$
     for (std::size_t i = j + 1; i < n; ++i) {
+      T *row_i = A + i * row_stride;
+      T *row_j = A + j * row_stride;
+
       T sum_l_ld = std::accumulate(size_t{0}, size_t{j}, T{0},
                                    [&](T acc, std::size_t k) {
                                      return acc + row_i[k] * row_j[k] * d[k];
