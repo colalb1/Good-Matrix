@@ -32,7 +32,7 @@ void test_cholesky_2x2() {
         std::cerr << "❌ Cholesky 2x2 failed\n";
 }
 
-void test_cholesky_solver_3x3() {
+void test_solver_3x3(bool use_ldlt) {
     std::vector<double> A = {
         25, 15, -5,
         15, 18,  0,
@@ -41,10 +41,16 @@ void test_cholesky_solver_3x3() {
 
     std::vector<double> b = {35, 33, 6};
     std::vector<double> x(3);
+    std::vector<double> d(3);  // Used only for LDLᵀ
 
-    bool ok = gms::cholesky_solve_inplace(A.data(), 3, 3, b.data(), x.data());
+    bool ok = gms::solve_inplace(
+        A.data(), b.data(), x.data(), 3, 3,
+        use_ldlt, d.data()
+    );
+
     if (!ok) {
-        std::cerr << "❌ Cholesky solve failed\n";
+        std::cerr << (use_ldlt ? "❌ LDLᵀ" : "❌ Cholesky")
+                  << " solve failed\n";
         return;
     }
 
@@ -53,13 +59,16 @@ void test_cholesky_solver_3x3() {
         pass = pass && nearly_equal(xi, 1.0);
 
     if (pass)
-        std::cout << "✅ Cholesky solver 3x3 passed\n";
+        std::cout << (use_ldlt ? "✅ LDLᵀ" : "✅ Cholesky")
+                  << " solver 3x3 passed\n";
     else
-        std::cerr << "❌ Cholesky solver 3x3 failed\n";
+        std::cerr << (use_ldlt ? "❌ LDLᵀ" : "❌ Cholesky")
+                  << " solver 3x3 failed\n";
 }
 
 int main() {
     test_cholesky_2x2();
-    test_cholesky_solver_3x3();
+    test_solver_3x3(false);  // Cholesky
+    test_solver_3x3(true);   // LDLᵀ
     return 0;
 }
