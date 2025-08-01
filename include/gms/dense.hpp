@@ -36,11 +36,10 @@ bool cholesky_inplace_lower(T *A, std::size_t n, std::size_t row_stride,
     // Track the largest diagonal value seen so far to define relative tolerance
     max_diag = std::max(max_diag, std::abs(A[k * row_stride + k]));
 
-    T *row_start = A + k * row_stride;
-
     // Compute $d_k = A_{kk} - \sum_{j=0}^{k-1} L_{kj}^2$
+    T *row_ptr = A + k * row_stride;
     T residual_diag_correction =
-        std::accumulate(row_start, row_start + k, T{0},
+        std::accumulate(row_ptr, row_ptr + k, T{0},
                         [](T acc, T val) { return acc + val * val; });
     T d = A[k * row_stride + k] - residual_diag_correction;
 
