@@ -170,13 +170,11 @@ bool ldlt_inplace_lower(T *A, T *d, std::size_t n, std::size_t row_stride,
     // Compute the lower triangular elements $L_ij = (A_ij - \sum_{k=0}^{j - 1}
     // L_ik * L_jk * d_k) / D_j$
     for (std::size_t i = j + 1; i < n; ++i) {
-      T *row_i = A + i * row_stride;
-      T *row_j = A + j * row_stride;
+      T sum_l_ld = 0;
 
-      T sum_l_ld = std::accumulate(size_t{0}, size_t{j}, T{0},
-                                   [&](T acc, std::size_t k) {
-                                     return acc + row_i[k] * row_j[k] * d[k];
-                                   });
+      for (std::size_t k = 0; k < j; ++k) {
+        sum_l_ld += A[i * row_stride + k] * A[j * row_stride + k] * d[k];
+      }
 
       A[i * row_stride + j] = (A[i * row_stride + j] - sum_l_ld) / D_j;
     }
