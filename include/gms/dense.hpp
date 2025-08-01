@@ -36,10 +36,12 @@ bool cholesky_inplace_lower(T *A, std::size_t n, std::size_t row_stride,
     // Track the largest diagonal value seen so far to define relative tolerance
     max_diag = std::max(max_diag, std::abs(A[k * row_stride + k]));
 
+    T* row_start = A + k * row_stride;
+
     // Compute $d_k = A_{kk} - \sum_{j=0}^{k-1} L_{kj}^2$
-    T residual_diag_correction = std::transform_reduce(
-        std::execution::seq, row_start, row_start + k, T{0}, std::plus<>{},
-        [](T val) { return val * val; });
+    T residual_diag_correction =
+        std::accumulate(row_start, row_start + k, T{0},
+                        [](T acc, T val) { return acc + val * val; });
     T d = A[k * row_stride + k] - residual_diag_correction;
 
     // Check if the matrix is positive definite
@@ -148,14 +150,13 @@ bool ldlt_inplace_lower(T *A, T *d, std::size_t n, std::size_t row_stride,
     // Numerical tolerance is defined relative to the diagonal element
     max_diag_abs = std::max(max_diag_abs, std::abs(A[j * row_stride + j]));
 
-    // Compute the diagonal element $D_j = A_jj - \sum_{k=0}^{j-1} L_jk ^ 2 * d_k$
+    // Compute the diagonal element $D_j = A_jj - \sum_{k=0}^{j-1} L_jk ^ 2 *
+    // d_k$
     T sum_lower_diag = std::transform_reduce(
-        A + j * row_stride, A + j * row_stride + j,  // L_jk
-        d,                                           // d_k
-        T{0},
-        std::plus<>{},
-        [](const T& val, const T& diag) { return val * val * diag; }
-    );
+        A + j * row_stride, A + j * row_stride + j, // L_jk
+        d,                                          // d_k
+        T{0}, std::plus<>{},
+        [](const T &val, const T &diag) { return val * val * diag; });
 
     const T D_j = A[j * row_stride + j] - sum_lower_diag;
 
@@ -167,14 +168,13 @@ bool ldlt_inplace_lower(T *A, T *d, std::size_t n, std::size_t row_stride,
 
     d[j] = D_j;
 
-    // Compute the lower triangular elements $L_ij = (A_ij - \sum_{k=0}^{j - 1} L_ik * L_jk * d_k) / D_j$
+    // Compute the lower triangular elements $L_ij = (A_ij - \sum_{k=0}^{j - 1}
+    // L_ik * L_jk * d_k) / D_j$
     for (std::size_t i = j + 1; i < n; ++i) {
-      T sum_l_ld = std::accumulate(
-          size_t{0}, size_t{j}, T{0},
-          [&](T acc, std::size_t k) {
-            return acc + row_i[k] * row_j[k] * d[k];
-          }
-      );
+      T sum_l_ld = std::accumulate(size_t{0}, size_t{j}, T{0},
+                                   [&](T acc, std::size_t k) {
+                                     return acc + row_i[k] * row_j[k] * d[k];
+                                   });
 
       A[i * row_stride + j] = (A[i * row_stride + j] - sum_l_ld) / D_j;
     }
@@ -190,12 +190,8 @@ void forward_subst_lower_unitdiag_true(const T *L, std::size_t n,
                                        std::size_t row_stride, const T *b,
                                        T *z) {
   for (std::size_t i = 0; i < n; ++i) {
-    T inner_product = std::inner_product(
-      L + i * row_stride,
-      L + i * row_stride + i,
-      z,
-      T{0}
-    );
+    T inner_product =
+        std::inner_product(L + i * row_stride, L + i * row_stride + i, z, T{0});
 
     z[i] = b[i] - inner_product;
   }
@@ -220,11 +216,10 @@ void backward_subst_upper_from_lower_transpose_unitdiag_true(
     const std::size_t ui = static_cast<std::size_t>(i);
 
     T inner_product = std::inner_product(
-        L + (ui + 1) * row_stride + ui,     // start of L[j][i] for j = ui + 1
-        L + n * row_stride + ui,            // one past last element L[n - 1][i]
-        x + ui + 1,                        // x[j] starting from j = ui + 1
-        T{0}
-    );
+        L + (ui + 1) * row_stride + ui, // start of L[j][i] for j = ui + 1
+        L + n * row_stride + ui,        // one past last element L[n - 1][i]
+        x + ui + 1,                     // x[j] starting from j = ui + 1
+        T{0});
 
     x[ui] = y[ui] - inner_product;
   }
@@ -252,6 +247,21 @@ bool ldlt_solve_inplace(T *A, std::size_t n, std::size_t row_stride, const T *b,
                                                           x);
 
   return true;
+}
+
+template <class T>
+bool solve_inplace(T *A, const T *b, T *x, std::size_t n,
+                   std::size_t row_stride, bool use_ldlt = false,
+                   T *d = nullptr, T eps_rel = static_cast<T>(1e-14)) {
+  if (use_ldlt) {
+    if (!d) {
+      throw std::invalid_argument(
+          "solve_inplace: LDLᵀ requires temporary buffer d.");
+    }
+    return ldlt_solve_inplace(A, n, row_stride, b, x, d, eps_rel);
+  } else {
+    return cholesky_solve_inplace(A, n, row_stride, b, x, eps_rel);
+  }
 }
 
 } // namespace gms
