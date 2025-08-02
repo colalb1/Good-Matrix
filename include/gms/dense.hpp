@@ -9,11 +9,11 @@
 namespace gms {
 
 //==============================================================================
-// Cholesky (LLᵀ) Decomposition & Solver
+// Cholesky (LL^T) Decomposition & Solver
 //==============================================================================
 
 /**
- * @brief Performs an in-place Cholesky (LLᵀ) decomposition.
+ * @brief Performs an in-place Cholesky (LL^T) decomposition.
  * @details The lower triangular part of A is replaced by the Cholesky factor L.
  * @param A Pointer to the matrix data (row-major).
  * @param n Dimension of the matrix.
