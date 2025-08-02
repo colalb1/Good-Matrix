@@ -262,7 +262,61 @@ bool ldlt_solve_inplace(T *A, std::size_t n, std::size_t row_stride, const T *b,
 template <class T>
 bool lu_decompose_inplace(T *A, std::size_t *pivots, std::size_t n,
                           std::size_t row_stride,
-                          T eps_rel = static_cast<T>(1e-14)) {}
+                          T eps_rel = static_cast<T>(1e-14)) {
+  static_assert(std::is_floating_point_v<T>,
+                "LU decomposition requires floating point type");
+
+  if (!A || !pivots || row_stride < n)
+    throw std::invalid_argument(
+        "lu_decompose_inplace: invalid A/pivots/row_stride");
+
+  const T eps = std::numeric_limits<T>::epsilon();
+  T max_val = T{0};
+
+  for (std::size_t k = 0; k < n; ++k) {
+    // Find pivot row: row with largest absolute value in column k
+    std::size_t pivot_row = k;
+    T max_in_col = std::abs(A[k * row_stride + k]);
+
+    // Find pivot row: find p such that |A_pk| = max_{i= k,..., n - 1} |A_ik|.
+    for (std::size_t i = k + 1; i < n; ++i) {
+      T val = std::abs(A[i * row_stride + k]);
+
+      if (val > max_in_col) {
+        max_in_col = val;
+        pivot_row = i;
+      }
+    }
+
+    // Check if matrix is singular (pivot too small)
+    max_val = std::max(max_val, max_in_col);
+    const T tol = std::max(eps_rel * max_val, T(10) * eps * max_val);
+    if (max_in_col <= tol)
+      return false;
+
+    // Record the pivot row index p for the k-th step
+    pivots[k] = pivot_row;
+
+    // If p != k, swap row k and row p
+    if (pivot_row != k) {
+      for (std::size_t j = 0; j < n; ++j)
+        std::swap(A[k * row_stride + j], A[pivot_row * row_stride + j]);
+    }
+
+    // For rows i > k, compute the multipliers L_ik and update the submatrix
+    for (std::size_t i = k + 1; i < n; ++i) {
+      // L_ik = A_ik / A_kk
+      A[i * row_stride + k] /= A[k * row_stride + k];
+
+      // For j > k, A_ij := A_ij - L_ik * A_kj
+      for (std::size_t j = k + 1; j < n; ++j) {
+        A[i * row_stride + j] -= A[i * row_stride + k] * A[k * row_stride + j];
+      }
+    }
+  }
+
+  return true;
+}
 
 /**
  * @brief Solves L y = P b using forward substitution.
@@ -271,7 +325,21 @@ bool lu_decompose_inplace(T *A, std::size_t *pivots, std::size_t n,
  */
 template <class T>
 void lu_forward_substitute(const T *A, const std::size_t *pivots, std::size_t n,
-                           std::size_t row_stride, const T *b, T *y) {}
+                           std::size_t row_stride, const T *b, T *y) {
+  for (std::size_t i = 0; i < n; ++i) {
+    // Apply permutation P to b
+    const T b_i = b[pivots[i]];
+
+    // Compute y[i] = b[pivots[i]] - sum_j=0^{i - 1} L_ij * y[j]
+    T inner_product = T{0};
+    for (std::size_t j = 0; j < i; ++j) {
+      inner_product += A[i * row_stride + j] * y[j];  // L_ij * y_j
+    }
+
+    // Since L has unit diagonal, no division needed
+    y[i] = b_i - inner_product;
+  }
+}
 
 /**
  * @brief Solves U x = y using backward substitution.
@@ -279,7 +347,19 @@ void lu_forward_substitute(const T *A, const std::size_t *pivots, std::size_t n,
  */
 template <class T>
 void lu_backward_substitute(const T *A, std::size_t n, std::size_t row_stride,
-                            const T *y, T *x) {}
+                            const T *y, T *x) {
+  for (std::ptrdiff_t i = static_cast<std::ptrdiff_t>(n) - 1; i >= 0; --i) {
+    const std::size_t ui = static_cast<std::size_t>(i);
+    T inner_product = T{0};
+
+    // inner_product = U_ij * x_j for j = i+1 to n-1
+    for (std::size_t j = ui + 1; j < n; ++j) {
+      inner_product += A[ui * row_stride + j] * x[j];
+    }
+
+    x[ui] = (y[ui] - inner_product) / A[ui * row_stride + ui];
+  }
+}
 
 /**
  * @brief Solves A x = b using LU decomposition.
