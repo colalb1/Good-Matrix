@@ -320,24 +320,27 @@ bool lu_decompose_inplace(T *A, std::size_t *pivots, std::size_t n,
 
 /**
  * @brief Solves L y = P b using forward substitution.
- * @details L has implicit unit diagonal. Permutes b using pivots, result is
- * written to y.
+ * @details L has implicit unit diagonal. Applies permutation to b, then solves.
+ * The result is written to y.
  */
 template <class T>
 void lu_forward_substitute(const T *A, const std::size_t *pivots, std::size_t n,
                            std::size_t row_stride, const T *b, T *y) {
   for (std::size_t i = 0; i < n; ++i) {
-    // Apply permutation P to b
-    const T b_i = b[pivots[i]];
+    y[i] = b[i];
+  }
 
-    // Compute y[i] = b[pivots[i]] - sum_j=0^{i - 1} L_ij * y[j]
-    T inner_product = T{0};
-    for (std::size_t j = 0; j < i; ++j) {
-      inner_product += A[i * row_stride + j] * y[j];  // L_ij * y_j
+  for (std::size_t i = 0; i < n; ++i) {
+    if (pivots[i] != i) {
+      std::swap(y[i], y[pivots[i]]);
     }
+  }
 
-    // Since L has unit diagonal, no division needed
-    y[i] = b_i - inner_product;
+  // Now, solve Ly = y (where y was Pb) in-place using the L matrix stored in A
+  for (std::size_t i = 0; i < n; ++i) {
+    for (std::size_t j = 0; j < i; ++j) {
+      y[i] -= A[i * row_stride + j] * y[j];
+    }
   }
 }
 
@@ -366,8 +369,8 @@ void lu_backward_substitute(const T *A, std::size_t n, std::size_t row_stride,
  * @details Performs in-place LU decomposition and solves using forward and
  * backward substitution.
  * @param A Pointer to matrix data. Will be overwritten.
- * @param b Right-hand side.
- * @param x Output solution.
+ * @param b Right-hand side vector.
+ * @param x Output solution vector.
  * @param pivots Temporary buffer of size n.
  * @param n Matrix size.
  * @param row_stride Leading dimension of A.
@@ -376,7 +379,20 @@ void lu_backward_substitute(const T *A, std::size_t n, std::size_t row_stride,
 template <class T>
 bool lu_solve_inplace(T *A, const T *b, T *x, std::size_t *pivots,
                       std::size_t n, std::size_t row_stride,
-                      T eps_rel = static_cast<T>(1e-14)) {}
+                      T eps_rel = static_cast<T>(1e-14)) {
+  // Step 1: Decompose A into PA = LU.
+  if (!lu_decompose_inplace(A, pivots, n, row_stride, eps_rel)) {
+    return false; // Matrix is singular, cannot solve.
+  }
+
+  // Step 2: Solve Ly = Pb using forward substitution.
+  lu_forward_substitute(A, pivots, n, row_stride, b, x);
+
+  // Step 3: Solve Ux = y using backward substitution.
+  lu_backward_substitute(A, n, row_stride, x, x);
+
+  return true;
+}
 
 /**
  * @brief Performs QR decomposition using Householder reflections.
