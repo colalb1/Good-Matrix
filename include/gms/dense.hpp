@@ -93,7 +93,7 @@ void backward_subst_upper_from_lower_transpose(const T *L, std::size_t n,
   for (std::ptrdiff_t i = static_cast<std::ptrdiff_t>(n) - 1; i >= 0; --i) {
     const std::size_t ui = static_cast<std::size_t>(i);
     T partial_sum = T{0};
-    
+
     // Manually compute the sum of L[j][i] * x[j] for j = i+1 to n-1
     for (std::size_t j = ui + 1; j < n; ++j) {
       partial_sum += L[j * row_stride + ui] * x[j];
@@ -154,7 +154,7 @@ bool ldlt_inplace_lower(T *A, T *d, std::size_t n, std::size_t row_stride,
     // d_k$
     T sum_lower_diag = T{0};
     for (std::size_t k = 0; k < j; ++k) {
-        sum_lower_diag += A[j * row_stride + k] * A[j * row_stride + k] * d[k];
+      sum_lower_diag += A[j * row_stride + k] * A[j * row_stride + k] * d[k];
     }
 
     const T D_j = A[j * row_stride + j] - sum_lower_diag;
@@ -215,7 +215,7 @@ void backward_subst_upper_from_lower_transpose_unitdiag_true(
   for (std::ptrdiff_t i = static_cast<std::ptrdiff_t>(n) - 1; i >= 0; --i) {
     const std::size_t ui = static_cast<std::size_t>(i);
     T inner_product = T{0};
-    
+
     // Manually compute the sum of L[j][i] * x[j] for j = i+1 to n-1
     for (std::size_t j = ui + 1; j < n; ++j) {
       inner_product += L[j * row_stride + ui] * x[j];
@@ -249,19 +249,68 @@ bool ldlt_solve_inplace(T *A, std::size_t n, std::size_t row_stride, const T *b,
   return true;
 }
 
+/**
+ * @brief Performs in-place LU decomposition with partial pivoting.
+ * @details A is overwritten with L and U (unit diagonal L). Pivot indices are
+ * stored in `pivots`.
+ * @param A Pointer to the matrix data (row-major).
+ * @param pivots Pointer to array of size n (output).
+ * @param n Matrix dimension.
+ * @param row_stride Leading dimension of A.
+ * @return true on success, false if the matrix is singular.
+ */
 template <class T>
-bool solve_inplace(T *A, const T *b, T *x, std::size_t n,
-                   std::size_t row_stride, bool use_ldlt = false,
-                   T *d = nullptr, T eps_rel = static_cast<T>(1e-14)) {
-  if (use_ldlt) {
-    if (!d) {
-      throw std::invalid_argument(
-          "solve_inplace: LDLᵀ requires temporary buffer d.");
-    }
-    return ldlt_solve_inplace(A, n, row_stride, b, x, d, eps_rel);
-  } else {
-    return cholesky_solve_inplace(A, n, row_stride, b, x, eps_rel);
-  }
-}
+bool lu_decompose_inplace(T *A, std::size_t *pivots, std::size_t n,
+                          std::size_t row_stride,
+                          T eps_rel = static_cast<T>(1e-14)) {}
+
+/**
+ * @brief Solves L y = P b using forward substitution.
+ * @details L has implicit unit diagonal. Permutes b using pivots, result is
+ * written to y.
+ */
+template <class T>
+void lu_forward_substitute(const T *A, const std::size_t *pivots, std::size_t n,
+                           std::size_t row_stride, const T *b, T *y) {}
+
+/**
+ * @brief Solves U x = y using backward substitution.
+ * @details U is the upper triangle of A.
+ */
+template <class T>
+void lu_backward_substitute(const T *A, std::size_t n, std::size_t row_stride,
+                            const T *y, T *x) {}
+
+/**
+ * @brief Solves A x = b using LU decomposition.
+ * @details Performs in-place LU decomposition and solves using forward and
+ * backward substitution.
+ * @param A Pointer to matrix data. Will be overwritten.
+ * @param b Right-hand side.
+ * @param x Output solution.
+ * @param pivots Temporary buffer of size n.
+ * @param n Matrix size.
+ * @param row_stride Leading dimension of A.
+ * @return true on success, false if the matrix is singular.
+ */
+template <class T>
+bool lu_solve_inplace(T *A, const T *b, T *x, std::size_t *pivots,
+                      std::size_t n, std::size_t row_stride,
+                      T eps_rel = static_cast<T>(1e-14)) {}
+
+// template <class T>
+// bool solve_inplace(T *A, const T *b, T *x, std::size_t n,
+//                    std::size_t row_stride, bool use_ldlt = false,
+//                    T *d = nullptr, T eps_rel = static_cast<T>(1e-14)) {
+//   if (use_ldlt) {
+//     if (!d) {
+//       throw std::invalid_argument(
+//           "solve_inplace: LDLᵀ requires temporary buffer d.");
+//     }
+//     return ldlt_solve_inplace(A, n, row_stride, b, x, d, eps_rel);
+//   } else {
+//     return cholesky_solve_inplace(A, n, row_stride, b, x, eps_rel);
+//   }
+// }
 
 } // namespace gms
