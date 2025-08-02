@@ -23,7 +23,7 @@ namespace gms {
 template <class T>
 bool cholesky_inplace_lower(T *A, std::size_t n, std::size_t row_stride,
                             T eps_rel = static_cast<T>(1e-14)) {
-  static_assert(std::is_floating_point_v<T>,
+  static_assert(std::is_floating_point<T>::value,
                 "Cholesky requires floating point type");
   if (!A || row_stride < n) {
     throw std::invalid_argument("cholesky_inplace_lower: invalid A/row_stride");
@@ -91,15 +91,16 @@ void backward_subst_upper_from_lower_transpose(const T *L, std::size_t n,
                                                std::size_t row_stride,
                                                const T *y, T *x) {
   for (std::ptrdiff_t i = static_cast<std::ptrdiff_t>(n) - 1; i >= 0; --i) {
-    T partial_sum = std::inner_product(
-        L + (i + 1) * row_stride + i, L + n * row_stride + i, x + i + 1, T{0},
-        std::plus<>{}, [](T l_ji, T x_j) { return l_ji * x_j; });
+    const std::size_t ui = static_cast<std::size_t>(i);
+    T partial_sum = T{0};
+    
+    // Manually compute the sum of L[j][i] * x[j] for j = i+1 to n-1
+    for (std::size_t j = ui + 1; j < n; ++j) {
+      partial_sum += L[j * row_stride + ui] * x[j];
+    }
 
     // Computes $x_i = (y_i - (\sum_{j=i + 1}^{n - 1} L_ji * x_j)) / L_ii$
-    x[static_cast<std::size_t>(i)] =
-        (y[static_cast<std::size_t>(i)] - partial_sum) /
-        L[static_cast<std::size_t>(i) * row_stride +
-          static_cast<std::size_t>(i)];
+    x[ui] = (y[ui] - partial_sum) / L[ui * row_stride + ui];
   }
 }
 
@@ -137,7 +138,7 @@ bool cholesky_solve_inplace(T *A, std::size_t n, std::size_t row_stride,
 template <class T>
 bool ldlt_inplace_lower(T *A, T *d, std::size_t n, std::size_t row_stride,
                         T eps_rel = static_cast<T>(1e-14)) {
-  static_assert(std::is_floating_point_v<T>,
+  static_assert(std::is_floating_point<T>::value,
                 "LDL^T requires floating point type");
   if (!A || !d || row_stride < n)
     throw std::invalid_argument("ldlt_inplace_lower: invalid A/d/row_stride");
@@ -151,11 +152,10 @@ bool ldlt_inplace_lower(T *A, T *d, std::size_t n, std::size_t row_stride,
 
     // Compute the diagonal element $D_j = A_jj - \sum_{k=0}^{j-1} L_jk ^ 2 *
     // d_k$
-    T sum_lower_diag = std::transform_reduce(
-        A + j * row_stride, A + j * row_stride + j, // L_jk
-        d,                                          // d_k
-        T{0}, std::plus<>{},
-        [](const T &val, const T &diag) { return val * val * diag; });
+    T sum_lower_diag = T{0};
+    for (std::size_t k = 0; k < j; ++k) {
+        sum_lower_diag += A[j * row_stride + k] * A[j * row_stride + k] * d[k];
+    }
 
     const T D_j = A[j * row_stride + j] - sum_lower_diag;
 
@@ -214,12 +214,12 @@ void backward_subst_upper_from_lower_transpose_unitdiag_true(
     const T *L, std::size_t n, std::size_t row_stride, const T *y, T *x) {
   for (std::ptrdiff_t i = static_cast<std::ptrdiff_t>(n) - 1; i >= 0; --i) {
     const std::size_t ui = static_cast<std::size_t>(i);
-
-    T inner_product = std::inner_product(
-        L + (ui + 1) * row_stride + ui, // start of L[j][i] for j = ui + 1
-        L + n * row_stride + ui,        // one past last element L[n - 1][i]
-        x + ui + 1,                     // x[j] starting from j = ui + 1
-        T{0});
+    T inner_product = T{0};
+    
+    // Manually compute the sum of L[j][i] * x[j] for j = i+1 to n-1
+    for (std::size_t j = ui + 1; j < n; ++j) {
+      inner_product += L[j * row_stride + ui] * x[j];
+    }
 
     x[ui] = y[ui] - inner_product;
   }

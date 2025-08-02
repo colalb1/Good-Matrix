@@ -41,7 +41,7 @@ void test_solver_3x3(bool use_ldlt) {
 
     std::vector<double> b = {35, 33, 6};
     std::vector<double> x(3);
-    std::vector<double> d(3);  // Used only for LDLᵀ
+    std::vector<double> d(3);  // Used only for LDL^T
 
     bool ok = gms::solve_inplace(
         A.data(), b.data(), x.data(), 3, 3,
@@ -69,6 +69,6 @@ void test_solver_3x3(bool use_ldlt) {
 int main() {
     test_cholesky_2x2();
     test_solver_3x3(false);  // Cholesky
-    test_solver_3x3(true);   // LDLᵀ
+    test_solver_3x3(true);   // LDL^T
     return 0;
 }
