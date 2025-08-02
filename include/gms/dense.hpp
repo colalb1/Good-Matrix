@@ -298,6 +298,72 @@ bool lu_solve_inplace(T *A, const T *b, T *x, std::size_t *pivots,
                       std::size_t n, std::size_t row_stride,
                       T eps_rel = static_cast<T>(1e-14)) {}
 
+/**
+ * @brief Performs QR decomposition using Householder reflections.
+ * @details The input matrix A (m × n) is overwritten: R in the upper triangle,
+ * and the Householder vectors below the diagonal. Tau stores scalar reflection
+ * factors.
+ * @param A Pointer to the matrix data (row-major), size m × n.
+ * @param tau Pointer to output array of size min(m, n) for scalar reflection
+ * coefficients.
+ * @param m Number of rows.
+ * @param n Number of columns.
+ * @param row_stride Leading dimension of A.
+ * @return true on success, false if numerical instability is detected.
+ */
+template <class T>
+bool qr_decompose_inplace(T *A, T *tau, std::size_t m, std::size_t n,
+                          std::size_t row_stride,
+                          T eps_rel = static_cast<T>(1e-14)) {}
+
+/**
+ * @brief Applies Qᵗ to vector b using the stored Householder vectors and tau.
+ * @details This computes y = Qᵗ b without explicitly forming Q.
+ * @param A The matrix from QR (contains Householder vectors).
+ * @param tau Scalar reflection factors from QR.
+ * @param m Number of rows of A and b.
+ * @param n Number of columns of A (number of Householder reflectors).
+ * @param row_stride Leading dimension of A.
+ * @param b Input vector (size m).
+ * @param y Output vector (size n) containing Qᵗ b.
+ */
+template <class T>
+void apply_q_transpose_to_vector(const T *A, const T *tau, std::size_t m,
+                                 std::size_t n, std::size_t row_stride,
+                                 const T *b, T *y) {}
+
+/**
+ * @brief Solves R x = y where R is the upper triangular part of A.
+ * @details This is standard backward substitution.
+ * @param A The matrix from QR (contains R in upper triangle).
+ * @param n Number of columns (size of x and y).
+ * @param row_stride Leading dimension of A.
+ * @param y The input vector from Qᵗ b.
+ * @param x Output vector containing the solution.
+ */
+template <class T>
+void solve_upper_triangular_from_qr(const T *A, std::size_t n,
+                                    std::size_t row_stride, const T *y, T *x) {}
+
+/**
+ * @brief Solves A x = b using QR decomposition (Householder).
+ * @details Performs QR factorization, applies Qᵗ b, then solves R x = y.
+ * @param A Matrix A (m × n), overwritten during decomposition.
+ * @param b Input vector b (size m).
+ * @param x Output vector x (size n).
+ * @param tau Temporary array of size n for storing Householder scalar
+ * coefficients.
+ * @param m Number of rows of A.
+ * @param n Number of columns of A.
+ * @param row_stride Leading dimension of A.
+ * @return true on success, false if matrix is rank-deficient or
+ * ill-conditioned.
+ */
+template <class T>
+bool qr_solve_inplace(T *A, const T *b, T *x, T *tau, std::size_t m,
+                      std::size_t n, std::size_t row_stride,
+                      T eps_rel = static_cast<T>(1e-14)) {}
+
 // template <class T>
 // bool solve_inplace(T *A, const T *b, T *x, std::size_t n,
 //                    std::size_t row_stride, bool use_ldlt = false,
