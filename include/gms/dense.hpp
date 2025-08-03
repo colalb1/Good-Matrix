@@ -583,19 +583,19 @@ bool qr_solve_inplace(T *A, const T *b, T *x, T *tau, std::size_t m,
 }
 
 
-// template <class T>
-// bool solve_inplace(T *A, const T *b, T *x, std::size_t n,
-//                    std::size_t row_stride, bool use_ldlt = false,
-//                    T *d = nullptr, T eps_rel = static_cast<T>(1e-14)) {
-//   if (use_ldlt) {
-//     if (!d) {
-//       throw std::invalid_argument(
-//           "solve_inplace: LDLᵀ requires temporary buffer d.");
-//     }
-//     return ldlt_solve_inplace(A, n, row_stride, b, x, d, eps_rel);
-//   } else {
-//     return cholesky_solve_inplace(A, n, row_stride, b, x, eps_rel);
-//   }
-// }
+template <class T>
+bool solve_inplace(T *A, const T *b, T *x, std::size_t n,
+                   std::size_t row_stride, bool use_ldlt = false,
+                   T *d = nullptr, T eps_rel = static_cast<T>(1e-14)) {
+  if (use_ldlt) {
+    if (!d) {
+      throw std::invalid_argument(
+          "solve_inplace: LDLᵀ requires temporary buffer d.");
+    }
+    return ldlt_solve_inplace(A, n, row_stride, b, x, d, eps_rel);
+  } else {
+    return cholesky_solve_inplace(A, n, row_stride, b, x, eps_rel);
+  }
+}
 
 } // namespace gms
