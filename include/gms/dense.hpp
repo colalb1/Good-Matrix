@@ -412,63 +412,63 @@ template <class T>
 bool qr_decompose_inplace(T *A, T *tau, std::size_t m, std::size_t n,
                           std::size_t row_stride,
                           T eps_rel = static_cast<T>(1e-14)) {
-    std::size_t k_max = std::min(m, n);
+  std::size_t k_max = std::min(m, n);
 
-    for (std::size_t k = 0; k < k_max; ++k) {
-        // Compute norm of column k from row k to m - 1
-        // $$\|x\|_2 = \sqrt{\sum_{i=k}^{m - 1} A_{ik}^2}$$
-        T norm_x = static_cast<T>(0);
+  for (std::size_t k = 0; k < k_max; ++k) {
+    // Compute norm of column k from row k to m - 1
+    // $$\|x\|_2 = \sqrt{\sum_{i=k}^{m - 1} A_{ik}^2}$$
+    T norm_x = static_cast<T>(0);
 
-        for (std::size_t i = k; i < m; ++i) {
-            T val = A[i * row_stride + k];
-            norm_x += val * val;
-        }
-        norm_x = std::sqrt(norm_x);
-
-        if (norm_x <= eps_rel) {
-            // If column is negligible, set tau[k] = 0 (don't reflect)
-            tau[k] = static_cast<T>(0);
-            continue;
-        }
-
-        // $$\alpha = A_{kk}
-        // $$\beta = -\mathrm{sign}(\alpha)\|x\|_2$$
-        T alpha = A[k * row_stride + k];
-        T beta = (alpha >= static_cast<T>(0) ? -norm_x : norm_x);
-        
-        // $$\tau_k = \frac{\beta - \alpha}{\beta}$$
-        T tau_k = (beta - alpha) / beta;
-        tau[k] = tau_k;
-
-        // Form Householder vector v in-place: v[0] = 1; A[k,k] = beta;
-        // $$v = x - (\beta)e_1$$
-        A[k * row_stride + k] = beta;
-
-        for (std::size_t i = k + 1; i < m; ++i) {
-            A[i * row_stride + k] /= (alpha - beta);
-        }
-
-        // Apply reflector to remaining submatrix A[k:, k+1:]
-        for (std::size_t j = k + 1; j < n; ++j) {
-            // Compute inner product w = v^T A[:,j]
-            // $$w = A_{kj} + \sum_{i=k + 1}^{m - 1} v_i A_{ij}$$
-            T w = A[k * row_stride + j];
-
-            for (std::size_t i = k + 1; i < m; ++i) {
-                w += A[i * row_stride + k] * A[i * row_stride + j];
-            }
-            w *= tau_k;
-
-            // Update column j: A[:,j] -= w * v
-            // $$A_{ij} \leftarrow A_{ij} - \tau_k * w * v_i$$
-            A[k * row_stride + j] -= w;
-
-            for (std::size_t i = k + 1; i < m; ++i) {
-                A[i * row_stride + j] -= w * A[i * row_stride + k];
-            }
-        }
+    for (std::size_t i = k; i < m; ++i) {
+      T val = A[i * row_stride + k];
+      norm_x += val * val;
     }
-    return true;
+    norm_x = std::sqrt(norm_x);
+
+    if (norm_x <= eps_rel) {
+      // If column is negligible, set tau[k] = 0 (don't reflect)
+      tau[k] = static_cast<T>(0);
+      continue;
+    }
+
+    // $$\alpha = A_{kk}
+    // $$\beta = -\mathrm{sign}(\alpha)\|x\|_2$$
+    T alpha = A[k * row_stride + k];
+    T beta = (alpha >= static_cast<T>(0) ? -norm_x : norm_x);
+
+    // $$\tau_k = \frac{\beta - \alpha}{\beta}$$
+    T tau_k = (beta - alpha) / beta;
+    tau[k] = tau_k;
+
+    // Form Householder vector v in-place: v[0] = 1; A[k,k] = beta;
+    // $$v = x - (\beta)e_1$$
+    A[k * row_stride + k] = beta;
+
+    for (std::size_t i = k + 1; i < m; ++i) {
+      A[i * row_stride + k] /= (alpha - beta);
+    }
+
+    // Apply reflector to remaining submatrix A[k:, k+1:]
+    for (std::size_t j = k + 1; j < n; ++j) {
+      // Compute inner product w = v^T A[:,j]
+      // $$w = A_{kj} + \sum_{i=k + 1}^{m - 1} v_i A_{ij}$$
+      T w = A[k * row_stride + j];
+
+      for (std::size_t i = k + 1; i < m; ++i) {
+        w += A[i * row_stride + k] * A[i * row_stride + j];
+      }
+      w *= tau_k;
+
+      // Update column j: A[:,j] -= w * v
+      // $$A_{ij} \leftarrow A_{ij} - \tau_k * w * v_i$$
+      A[k * row_stride + j] -= w;
+
+      for (std::size_t i = k + 1; i < m; ++i) {
+        A[i * row_stride + j] -= w * A[i * row_stride + k];
+      }
+    }
+  }
+  return true;
 }
 
 /**
@@ -486,34 +486,34 @@ template <class T>
 void apply_q_transpose_to_vector(const T *A, const T *tau, std::size_t m,
                                  std::size_t n, std::size_t row_stride,
                                  const T *b, T *y) {
-    // Copy b into working array y_full
-    std::vector<T> y_full(m);
-    for (std::size_t i = 0; i < m; ++i) {
-        y_full[i] = b[i];
+  // Copy b into working array y_full
+  std::vector<T> y_full(m);
+  for (std::size_t i = 0; i < m; ++i) {
+    y_full[i] = b[i];
+  }
+
+  // For each reflector k=0...n - 1: y_full = (I - tau_k v v^T) y_full
+  for (std::size_t k = 0; k < n; ++k) {
+    // $$v = [1; A_{k + 1: k + 1...m - 1, k}]$$
+    // Compute w = tau_k * (v^T y_full[k:])
+    T dot = y_full[k];
+
+    for (std::size_t i = k + 1; i < m; ++i) {
+      dot += A[i * row_stride + k] * y_full[i];
     }
+    T w = tau[k] * dot;
 
-    // For each reflector k=0...n - 1: y_full = (I - tau_k v v^T) y_full
-    for (std::size_t k = 0; k < n; ++k) {
-        // $$v = [1; A_{k + 1: k + 1...m - 1, k}]$$
-        // Compute w = tau_k * (v^T y_full[k:])
-        T dot = y_full[k];
-
-        for (std::size_t i = k + 1; i < m; ++i) {
-            dot += A[i * row_stride + k] * y_full[i];
-        }
-        T w = tau[k] * dot;
-
-        // y_full[k: m] -= w * v
-        y_full[k] -= w;
-        for (std::size_t i = k + 1; i < m; ++i) {
-            y_full[i] -= w * A[i * row_stride + k];
-        }
+    // y_full[k: m] -= w * v
+    y_full[k] -= w;
+    for (std::size_t i = k + 1; i < m; ++i) {
+      y_full[i] -= w * A[i * row_stride + k];
     }
+  }
 
-    // Output first n entries
-    for (std::size_t i = 0; i < n; ++i) {
-        y[i] = y_full[i];
-    }
+  // Output first n entries
+  for (std::size_t i = 0; i < n; ++i) {
+    y[i] = y_full[i];
+  }
 }
 
 /**
@@ -527,22 +527,21 @@ void apply_q_transpose_to_vector(const T *A, const T *tau, std::size_t m,
  */
 template <class T>
 void solve_upper_triangular_from_qr(const T *A, std::size_t n,
-                                    std::size_t row_stride, const T *y,
-                                    T *x) {
-    // Backward substitution
-    for (std::size_t ii = 0; ii < n; ++ii) {
-        std::size_t i = n - 1 - ii;
+                                    std::size_t row_stride, const T *y, T *x) {
+  // Backward substitution
+  for (std::size_t ii = 0; ii < n; ++ii) {
+    std::size_t i = n - 1 - ii;
 
-        // $$x_i = \frac{1}{R_{ii}}\left(y_i - \sum_{j=i+1}^{n-1} R_{ij} x_j\right)$$
-        T sum = static_cast<T>(0);
+    // $$x_i = \frac{1}{R_{ii}}\left(y_i - \sum_{j=i+1}^{n-1} R_{ij}
+    // x_j\right)$$
+    T sum = static_cast<T>(0);
 
-        for (std::size_t j = i + 1; j < n; ++j) {
-            sum += A[i * row_stride + j] * x[j];
-        }
-        x[i] = (y[i] - sum) / A[i * row_stride + i];
+    for (std::size_t j = i + 1; j < n; ++j) {
+      sum += A[i * row_stride + j] * x[j];
     }
+    x[i] = (y[i] - sum) / A[i * row_stride + i];
+  }
 }
-
 
 /**
  * @brief Solves A x = b using QR decomposition (Householder).
@@ -562,26 +561,25 @@ template <class T>
 bool qr_solve_inplace(T *A, const T *b, T *x, T *tau, std::size_t m,
                       std::size_t n, std::size_t row_stride,
                       T eps_rel = static_cast<T>(1e-14)) {
-    // $$A \leftarrow Q R$$ via in-place Householder QR
-    if (!qr_decompose_inplace(A, tau, m, n, row_stride, eps_rel)) {
-        return false;
+  // $$A \leftarrow Q R$$ via in-place Householder QR
+  if (!qr_decompose_inplace(A, tau, m, n, row_stride, eps_rel)) {
+    return false;
+  }
+  // Check for rank-deficiency: zero (or near-zero) diagonal in R
+  for (std::size_t i = 0; i < n; ++i) {
+    if (std::abs(A[i * row_stride + i]) <= eps_rel) {
+      return false;
     }
-    // Check for rank-deficiency: zero (or near-zero) diagonal in R
-    for (std::size_t i = 0; i < n; ++i) {
-        if (std::abs(A[i * row_stride + i]) <= eps_rel) {
-            return false;
-        }
-    }
+  }
 
-    // $$y = Q^T b$$
-    std::vector<T> y(n);
-    apply_q_transpose_to_vector(A, tau, m, n, row_stride, b, y.data());
+  // $$y = Q^T b$$
+  std::vector<T> y(n);
+  apply_q_transpose_to_vector(A, tau, m, n, row_stride, b, y.data());
 
-    // $$R x = y$$
-    solve_upper_triangular_from_qr(A, n, row_stride, y.data(), x);
-    return true;
+  // $$R x = y$$
+  solve_upper_triangular_from_qr(A, n, row_stride, y.data(), x);
+  return true;
 }
-
 
 template <class T>
 bool solve_inplace(T *A, const T *b, T *x, std::size_t n,
