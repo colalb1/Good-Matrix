@@ -127,6 +127,59 @@ void test_lu_solve_singular() {
         << "❌ LU Solver (Singular) failed: did not identify singular matrix\n";
 }
 
+// Test helpers and QR test
+inline bool nearly_equal(double a, double b, double tol = 1e-10) {
+  return std::abs(a - b) < tol;
+}
+
+inline void test_qr_solve_3x3() {
+  std::vector<double> A = {
+      2.0,  -1.0, 0.0,  -1.0, 2.0,
+      -1.0, 0.0,  -1.0, 2.0}; // Symmetric tridiagonal matrix (SPD)
+
+  std::vector<double> b = {1.0, 0.0, 1.0};
+  std::vector<double> x(3);
+  std::vector<double> tau(3);
+  const std::size_t m = 3, n = 3, stride = 3;
+
+  bool ok = gms::qr_solve_inplace(A.data(), b.data(), x.data(), tau.data(), m,
+                                  n, stride);
+  if (!ok) {
+    std::cerr << "❌ QR Solver 3x3 failed to solve\n";
+    return;
+  }
+
+  // Expected solution is x = [1.0, 1.0, 1.0]
+  bool pass = nearly_equal(x[0], 1.0) && nearly_equal(x[1], 1.0) &&
+              nearly_equal(x[2], 1.0);
+
+  if (pass)
+    std::cout << "✅ QR Solver 3x3 passed\n";
+  else
+    std::cerr << "❌ QR Solver 3x3 failed: incorrect solution\n";
+}
+
+inline void test_qr_solve_rank_deficient() {
+  std::vector<double> A = {
+      1.0, 2.0, 3.0, 2.0, 4.0,
+      6.0, 1.0, 2.0, 3.0}; // Rank-deficient (row 3 = row 1)
+
+  std::vector<double> b = {6.0, 12.0, 6.0};
+  std::vector<double> x(3);
+  std::vector<double> tau(3);
+  const std::size_t m = 3, n = 3, stride = 3;
+
+  bool ok = gms::qr_solve_inplace(A.data(), b.data(), x.data(), tau.data(), m,
+                                  n, stride);
+
+  if (!ok)
+    std::cout << "✅ QR Solver (Singular) passed: correctly identified "
+                 "rank-deficient matrix\n";
+  else
+    std::cerr << "❌ QR Solver (Singular) failed: did not identify "
+                 "rank-deficient matrix\n";
+}
+
 int main() {
   // Test Cholesky
   test_cholesky_2x2();
@@ -139,6 +192,10 @@ int main() {
   test_lu_solve_2x2();
   test_lu_solve_3x3_pivot();
   test_lu_solve_singular();
+
+  // Test QR Solver
+  test_qr_solve_3x3();
+  test_qr_solve_rank_deficient();
 
   return 0;
 }
