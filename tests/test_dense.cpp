@@ -2,6 +2,7 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
+#include <random>
 
 bool nearly_equal(double a, double b, double tol = 1e-10) {
   return std::abs(a - b) < tol;
@@ -54,6 +55,36 @@ void test_solver_3x3(bool use_ldlt) {
   else
     std::cerr << (use_ldlt ? "❌ LDLᵀ" : "❌ Cholesky")
               << " solver 3x3 failed\n";
+}
+
+inline void test_cholesky_large_system() {
+  const std::size_t n = 100;
+  const std::size_t stride = n;
+
+  std::vector<double> A(n * n, 0.0);
+  std::vector<double> b(n);
+  std::vector<double> x(n);
+  std::vector<double> d(n);
+
+  // Generate symmetric positive definite matrix
+  for (std::size_t i = 0; i < n; ++i) {
+      A[i * stride + i] = 2.0;
+      if (i + 1 < n) {
+          A[i * stride + i + 1] = -1.0;
+          A[(i + 1) * stride + i] = -1.0;
+      }
+  }
+
+  std::mt19937 rng(456);
+  std::uniform_real_distribution<double> dist(-3.0, 3.0);
+  for (auto &val : b) val = dist(rng);
+
+  bool ok = gms::solve_inplace(A.data(), b.data(), x.data(), n, stride, false, d.data());
+  if (!ok) {
+      std::cerr << "❌ Cholesky Solver 100x100 failed to solve\n";
+      return;
+  }
+  std::cout << "✅ Cholesky Solver 100x100 passed\n";
 }
 
 void test_lu_solve_2x2() {
@@ -127,6 +158,29 @@ void test_lu_solve_singular() {
         << "❌ LU Solver (Singular) failed: did not identify singular matrix\n";
 }
 
+inline void test_lu_large_system() {
+  const std::size_t n = 100;
+  const std::size_t stride = n;
+
+  std::vector<double> A(n * n);
+  std::vector<double> b(n);
+  std::vector<double> x(n);
+  std::vector<std::size_t> pivots(n);
+
+  std::mt19937 rng(123);
+  std::uniform_real_distribution<double> dist(-5.0, 5.0);
+
+  for (auto &val : A) val = dist(rng);
+  for (auto &val : b) val = dist(rng);
+
+  bool ok = gms::lu_solve_inplace(A.data(), b.data(), x.data(), pivots.data(), n, stride);
+  if (!ok) {
+      std::cerr << "❌ LU Solver 100x100 failed to solve\n";
+      return;
+  }
+  std::cout << "✅ LU Solver 100x100 passed\n";
+}
+
 
 inline void test_qr_solve_3x3() {
   std::vector<double> A = {
@@ -176,6 +230,33 @@ inline void test_qr_solve_rank_deficient() {
                  "rank-deficient matrix\n";
 }
 
+inline void test_qr_large_system() {
+  const std::size_t m = 100;
+  const std::size_t n = 100;
+  const std::size_t stride = n;
+
+  std::vector<double> A(m * n);
+  std::vector<double> b(m);
+  std::vector<double> x(n);
+  std::vector<double> tau(n);
+
+  std::mt19937 rng(42);
+  std::uniform_real_distribution<double> dist(-10.0, 10.0);
+
+  for (auto &val : A)
+    val = dist(rng);
+  for (auto &val : b)
+    val = dist(rng);
+
+  bool ok = gms::qr_solve_inplace(A.data(), b.data(), x.data(), tau.data(), m,
+                                  n, stride);
+  if (!ok) {
+    std::cerr << "❌ QR Solver 100x100 failed to solve\n";
+    return;
+  }
+  std::cout << "✅ QR Solver 100x100 passed\n";
+}
+
 int main() {
   std::cout << "\n--- Cholesky Tests ---\n";
   // Test Cholesky
@@ -195,6 +276,7 @@ int main() {
   // Test QR Solver
   test_qr_solve_3x3();
   test_qr_solve_rank_deficient();
+  test_qr_large_system();
 
   return 0;
 }
