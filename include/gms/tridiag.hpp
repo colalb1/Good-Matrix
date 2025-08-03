@@ -46,7 +46,7 @@ void thomas_solve(const T *a, const T *b, const T *c, const T *d, T *x,
 
   // Back substitution
   x[n - 1] = d_prime[n - 1];
-  
+
   for (std::ptrdiff_t i = static_cast<std::ptrdiff_t>(n) - 2; i >= 0; --i) {
     x[i] = d_prime[i] - c_prime[i] * x[i + 1];
   }
