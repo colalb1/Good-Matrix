@@ -263,6 +263,7 @@ int main() {
   test_cholesky_2x2();
   test_solver_3x3(false); // Cholesky
   test_solver_3x3(true);  // LDL^T
+  test_cholesky_large_system();
 
   std::cout << "\n--- LU Solver Tests ---\n";
 
@@ -270,6 +271,7 @@ int main() {
   test_lu_solve_2x2();
   test_lu_solve_3x3_pivot();
   test_lu_solve_singular();
+  test_lu_large_system();
 
   std::cout << "\n--- QR Solver Tests ---\n";
 
