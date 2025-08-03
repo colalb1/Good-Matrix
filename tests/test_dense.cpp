@@ -127,10 +127,6 @@ void test_lu_solve_singular() {
         << "❌ LU Solver (Singular) failed: did not identify singular matrix\n";
 }
 
-// Test helpers and QR test
-inline bool nearly_equal(double a, double b, double tol = 1e-10) {
-  return std::abs(a - b) < tol;
-}
 
 inline void test_qr_solve_3x3() {
   std::vector<double> A = {
@@ -181,6 +177,7 @@ inline void test_qr_solve_rank_deficient() {
 }
 
 int main() {
+  std::cout << "\n--- Cholesky Tests ---\n";
   // Test Cholesky
   test_cholesky_2x2();
   test_solver_3x3(false); // Cholesky
@@ -192,6 +189,8 @@ int main() {
   test_lu_solve_2x2();
   test_lu_solve_3x3_pivot();
   test_lu_solve_singular();
+
+  std::cout << "\n--- QR Solver Tests ---\n";
 
   // Test QR Solver
   test_qr_solve_3x3();
