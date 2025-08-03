@@ -36,8 +36,8 @@ void thomas_solve(const T *a, const T *b, const T *c, const T *d, T *x,
   for (std::size_t i = 1; i < n; ++i) {
     const T denom = b[i] - a[i] * c_prime[i - 1];
 
-    if (std::abs(denom) <= std::numeric_limits<T>::epsilon()) {
-      throw std::runtime_error("thomas_solve: zero pivot encountered");
+    if (std::abs(denom) < std::numeric_limits<T>::epsilon() * std::abs(b[i])) {
+      throw std::runtime_error("thomas_solve: near-zero pivot encountered");
     }
 
     c_prime[i] = (i < n - 1) ? c[i] / denom : T{0};
