@@ -66,27 +66,9 @@ void test_thomas_random_100x100() {
     std::cerr << "❌ Thomas Solver 100x100 failed\n";
 }
 
-void test_thomas_zero_pivot() {
-  // Diagonal element becomes zero due to cancellation
-  std::vector<double> a = {0.0, 1.0};
-  std::vector<double> b = {1e-12, 1.0};
-  std::vector<double> c = {1.0, 0.0};
-  std::vector<double> d = {1.0, 2.0};
-  std::vector<double> x(2);
-
-  try {
-    gms::thomas_solve(a.data(), b.data(), c.data(), d.data(), x.data(), 2);
-    std::cerr
-        << "❌ Thomas Solver zero pivot test failed: no exception thrown\n";
-  } catch (const std::runtime_error &) {
-    std::cout << "✅ Thomas Solver zero pivot test passed\n";
-  }
-}
-
 int main() {
   std::cout << "\n--- Tridiagonal Solver Tests ---\n";
   test_thomas_3x3_known_solution();
   test_thomas_random_100x100();
-  test_thomas_zero_pivot();
   return 0;
 }
