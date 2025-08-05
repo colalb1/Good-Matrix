@@ -7,6 +7,7 @@
 #include <iterator>
 #include <limits>
 #include <numeric>
+#include <ranges>
 #include <stdexcept>
 #include <type_traits>
 #include <vector>
@@ -49,10 +50,10 @@ bool banded_cholesky_inplace_lower(T *B, std::size_t n, std::size_t m,
   const T eps = std::numeric_limits<T>::epsilon();
 
   // Find the maximum abs val on the diagonal
-  T max_diag_abs = static_cast<T>(0);
-  for (std::size_t i = 0; i < n; ++i) {
-    max_diag_abs = std::max(max_diag_abs, std::abs(B[i]));
-  }
+  auto diagonal = std::views::iota(0u, n) |
+                  std::views::transform([&](auto i) { return std::abs(B[i]); });
+
+  T max_diag_abs = *std::ranges::max_element(diagonal);
 
   for (std::size_t k = 0; k < n; ++k) {
     // Update column k using outer products from previous columns j.
@@ -75,7 +76,7 @@ bool banded_cholesky_inplace_lower(T *B, std::size_t n, std::size_t m,
 
     // Finalize column k: compute L_kk and scale the rest of the column.
     T d = B[k]; // A_kk = L_kk^2
-    if (d <= tol) {
+    if (d <= tol) [[unlikely]] {
       return false; // Matrix not positive definite.
     }
 
