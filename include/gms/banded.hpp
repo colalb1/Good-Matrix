@@ -65,7 +65,7 @@ bool banded_cholesky_inplace_lower(T *B, std::size_t n, std::size_t m,
       T l_kj = B[(k - j) * n + j];
       // Affects rows i >= k.
       // L(i, j) is non-zero for i <= j + m.
-      constexpr std::size_t i_end = std::min(n, j + m + 1);
+      std::size_t i_end = std::min(n, j + m + 1);
 
       for (std::size_t i = k; i < i_end; ++i) {
         // A(i, k) -= L(i, j) * L(k, j)
@@ -76,6 +76,8 @@ bool banded_cholesky_inplace_lower(T *B, std::size_t n, std::size_t m,
 
     // Finalize column k: compute L_kk and scale the rest of the column.
     T d = B[k]; // A_kk = L_kk^2
+
+    const T tol = std::max(eps_rel * max_diag_abs, T(10) * eps * max_diag_abs);
     if (d <= tol) [[unlikely]] {
       return false; // Matrix not positive definite.
     }
@@ -83,7 +85,7 @@ bool banded_cholesky_inplace_lower(T *B, std::size_t n, std::size_t m,
     T l_kk = std::sqrt(d);
     B[k] = l_kk; // Store L_kk
 
-    constexpr std::size_t i_end_scale = std::min(n, k + m + 1);
+    std::size_t i_end_scale = std::min(n, k + m + 1);
     for (std::size_t i = k + 1; i < i_end_scale; ++i) {
       B[(i - k) * n + k] /= l_kk;
     }
@@ -117,7 +119,7 @@ template <class T>
 void banded_backward_subst_upper_from_lower_transpose(const T *B, std::size_t n,
                                                       std::size_t m, const T *y,
                                                       T *x) {
-  for (std::ptrdiff_t i = std::ssize(B) - 1; i >= 0; --i) {
+  for (std::ptrdiff_t i = static_cast<std::size_t>(n) - 1; i >= 0; --i) {
     const std::size_t ui = static_cast<std::size_t>(i);
     T partial_sum = static_cast<T>(0);
 
