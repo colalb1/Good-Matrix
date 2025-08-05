@@ -1,7 +1,10 @@
 #pragma once
-#include <algorithm>
+
 #include <cmath>
 #include <cstddef>
+
+#include <algorithm>
+#include <iterator>
 #include <limits>
 #include <numeric>
 #include <stdexcept>
@@ -46,9 +49,10 @@ bool banded_cholesky_inplace_lower(T *B, std::size_t n, std::size_t m,
   const T eps = std::numeric_limits<T>::epsilon();
 
   // Find the maximum abs val on the diagonal
-  T max_diag_abs = *std::max_element(
-      B, B + n * ldB, [&](T a, T b) { return std::abs(a) < std::abs(b); });
-  const T tol = std::max(eps_rel * max_diag_abs, T(10) * eps * max_diag_abs);
+  T max_diag_abs = static_cast<T>(0);
+  for (std::size_t i = 0; i < n; ++i) {
+    max_diag_abs = std::max(max_diag_abs, std::abs(B[i]));
+  }
 
   for (std::size_t k = 0; k < n; ++k) {
     // Update column k using outer products from previous columns j.
@@ -60,7 +64,7 @@ bool banded_cholesky_inplace_lower(T *B, std::size_t n, std::size_t m,
       T l_kj = B[(k - j) * n + j];
       // Affects rows i >= k.
       // L(i, j) is non-zero for i <= j + m.
-      std::size_t i_end = std::min(n, j + m + 1);
+      constexpr std::size_t i_end = std::min(n, j + m + 1);
 
       for (std::size_t i = k; i < i_end; ++i) {
         // A(i, k) -= L(i, j) * L(k, j)
@@ -78,7 +82,7 @@ bool banded_cholesky_inplace_lower(T *B, std::size_t n, std::size_t m,
     T l_kk = std::sqrt(d);
     B[k] = l_kk; // Store L_kk
 
-    std::size_t i_end_scale = std::min(n, k + m + 1);
+    constexpr std::size_t i_end_scale = std::min(n, k + m + 1);
     for (std::size_t i = k + 1; i < i_end_scale; ++i) {
       B[(i - k) * n + k] /= l_kk;
     }
@@ -112,7 +116,7 @@ template <class T>
 void banded_backward_subst_upper_from_lower_transpose(const T *B, std::size_t n,
                                                       std::size_t m, const T *y,
                                                       T *x) {
-  for (std::ptrdiff_t i = static_cast<std::ptrdiff_t>(n) - 1; i >= 0; --i) {
+  for (std::ptrdiff_t i = std::ssize(B) - 1; i >= 0; --i) {
     const std::size_t ui = static_cast<std::size_t>(i);
     T partial_sum = static_cast<T>(0);
 
