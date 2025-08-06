@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <execution>
 #include <limits>
 #include <numeric>
@@ -95,29 +96,34 @@ std::size_t bandwidth(const T *A, std::size_t n,
                       BandType type = BandType::MAX) {
   static_assert(std::is_floating_point_v<T>,
                 "bandwidth: T must be floating point");
-  std::size_t bw = 0;
+  std::size_t bandwidth = 0;
+
   for (std::size_t i = 0; i < n; ++i) {
     for (std::size_t j = 0; j < n; ++j) {
       if (A[i * n + j] == T(0))
         continue;
-      std::size_t diff = (i > j) ? (i - j) : (j - i);
+
+      std::size_t diff = std::abs(i - j);
+
       switch (type) {
       case BandType::MAX:
       default:
-        bw = std::max(bw, diff);
+        bandwidth = std::max(bandwidth, diff);
+
       case BandType::LOWER:
         if (i >= j)
-          bw = std::max(bw, i - j);
+          bandwidth = std::max(bandwidth, i - j);
         break;
+
       case BandType::UPPER:
         if (j >= i)
-          bw = std::max(bw, j - i);
+          bandwidth = std::max(bandwidth, j - i);
         break;
       }
     }
   }
-  // $$ \text{bandwidth}_{\max} = \max_{a_{ij}\neq 0}|i-j| $$
-  return bw;
+  // $$ \text{bandwidth}_{\max} = \max_{a_{ij}\neq 0}|i - j| $$
+  return bandwidth;
 }
 
 /**
