@@ -153,26 +153,26 @@ template <class T>
 bool is_diagonally_dominant(const T *A, std::size_t n, bool strict = false) {
   static_assert(std::is_floating_point_v<T>,
                 "is_diagonally_dominant: T must be floating point");
+  if (n == 0)
+    return true;
 
-  for (std::size_t i = 0; i < n; ++i) {
-    T sum = T(0);
+  // Create a vector of indices [0, 1, ..., n - 1] to iterate over
+  std::vector<std::size_t> row_indices(n);
+  std::iota(row_indices.begin(), row_indices.end(), 0);
 
-    for (std::size_t j = 0; j < n; ++j) {
-      if (i == j)
-        continue;
-      sum += std::abs(A[i * n + j]);
-    }
+  return std::all_of(std::execution::par, row_indices.cbegin(),
+                     row_indices.cend(), [&](std::size_t i) {
+                       T sum = T(0);
 
-    // $$ |a_{ii}| %s \sum_{j\neq i}|a_{ij}| $$
-    if (strict) {
-      if (!(std::abs(A[i * n + i]) > sum))
-        return false;
-    } else {
-      if (!(std::abs(A[i * n + i]) >= sum))
-        return false;
-    }
-  }
-  return true;
+                       for (std::size_t j = 0; j < n; ++j) {
+                         if (i != j) {
+                           sum += std::abs(A[i * n + j]);
+                         }
+                       }
+                       // Return true if this row is dominant, false otherwise
+                       return strict ? (std::abs(A[i * n + i]) > sum)
+                                     : (std::abs(A[i * n + i]) >= sum);
+                     });
 }
 
 /**
