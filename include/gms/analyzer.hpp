@@ -49,7 +49,7 @@ bool is_symmetric(const T *A, std::size_t n,
   if (n <= 1)
     return true;
 
-  // Create a vector of row indices [0, 1, ..., n-2].
+  // Create a vector of row indices [0, 1, ..., n - 2]
   std::vector<std::size_t> row_indices(n - 1);
   std::iota(row_indices.begin(), row_indices.end(), 0);
 
@@ -66,23 +66,25 @@ bool is_symmetric(const T *A, std::size_t n,
 }
 
 /**
- * @brief Probes SPD-ness by attempting a full-band Cholesky (m = n - 1).
+ * @brief Probes SPD-ness by attempting a full-band Cholesky (m = n - 1)
  */
-template <class T> bool is_spd(const T *A, std::size_t n) {
+template <class T>
+bool is_spd(const T *A, std::size_t n,
+            T tol = std::numeric_limits<T>::epsilon()) {
   static_assert(std::is_floating_point_v<T>,
                 "is_spd: T must be floating point");
+  if (n == 0)
+    return true;
 
-  // Pack dense A into banded storage B_data with m = n - 1
-  std::size_t m = n > 0 ? n - 1 : 0;
-  std::vector<T> B_data((m + 1) * n);
-
-  for (std::size_t j = 0; j < n; ++j) {
-    for (std::size_t i = j; i < n; ++i) {
-      // B(i - j, j) = A(i,j)
-      B_data[(i - j) * n + j] = A[i * n + j];
-    }
+  // Check symmetry
+  if (!is_symmetric(A, n, tol)) {
+    return false;
   }
-  return banded_cholesky_inplace_lower(B_data.data(), n, m);
+
+  std::vector<T> A_copy(A, A + n * n);
+
+  // Check positive definiteness
+  return cholesky_inplace_lower(A_copy.data(), n, tol);
 }
 
 /**
@@ -100,6 +102,9 @@ std::size_t bandwidth(const T *A, std::size_t n,
         continue;
       std::size_t diff = (i > j) ? (i - j) : (j - i);
       switch (type) {
+      case BandType::MAX:
+      default:
+        bw = std::max(bw, diff);
       case BandType::LOWER:
         if (i >= j)
           bw = std::max(bw, i - j);
@@ -108,9 +113,6 @@ std::size_t bandwidth(const T *A, std::size_t n,
         if (j >= i)
           bw = std::max(bw, j - i);
         break;
-      case BandType::MAX:
-      default:
-        bw = std::max(bw, diff);
       }
     }
   }
