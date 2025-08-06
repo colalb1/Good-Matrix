@@ -16,19 +16,24 @@ enum class BandType { MAX, LOWER, UPPER };
 /**
  * @brief Computes the density of a matrix A (fraction of non-zero entries).
  */
-template <class T> double density(const T *A, std::size_t n) {
+template <class T>
+double density(const T *A, std::size_t n,
+               T tol = std::numeric_limits<T>::epsilon()) {
   static_assert(std::is_floating_point_v<T>,
-                "density: T must be floating point");
+                "density_optimized: T must be floating point");
+  if (n == 0)
+    return 0.0;
+
   std::size_t count = 0;
-  for (std::size_t i = 0; i < n; ++i) {
-    for (std::size_t j = 0; j < n; ++j) {
-      if (A[i * n + j] != T(0))
-        ++count;
+  const std::size_t total_elements = n * n;
+
+  for (std::size_t i = 0; i < total_elements; ++i) {
+    if (std::abs(A[i]) > tol) {
+      ++count;
     }
   }
-  // $$ \text{density} = \frac{\#\{i,j: a_{ij} \neq 0\}}{n^2} $$
-  return static_cast<double>(count) / static_cast<double>(n) /
-         static_cast<double>(n);
+
+  return static_cast<double>(count) / static_cast<double>(total_elements);
 }
 
 /**
@@ -38,29 +43,42 @@ template <class T>
 bool is_symmetric(const T *A, std::size_t n,
                   T tol = std::numeric_limits<T>::epsilon()) {
   static_assert(std::is_floating_point_v<T>,
-                "is_symmetric: T must be floating point");
-  for (std::size_t i = 0; i < n; ++i) {
+                "is_symmetric_optimized: T must be floating point");
+
+  // Trivial matrix is symmetric
+  if (n <= 1)
+    return true;
+
+  for (std::size_t i = 0; i < n - 1; ++i) {
+    const T *upper_ptr = A + i * n + (i + 1);
+    const T *lower_ptr = A + (i + 1) * n + i;
+
+    // Compare the rest of the row (upper) with the rest of the column (lower).
     for (std::size_t j = i + 1; j < n; ++j) {
-      // $$ \max_{i<j} |a_{ij} - a_{ji}| \le tol $$
-      if (std::abs(A[i * n + j] - A[j * n + i]) > tol)
+      if (std::abs(*upper_ptr - *lower_ptr) > tol)
         return false;
+
+      upper_ptr++;    // Moves pointer to A[i, j+1]
+      lower_ptr += n; // Moves pointer to A[j+1, i]
     }
   }
   return true;
 }
 
 /**
- * @brief Probes SPD-ness by attempting a full-band Cholesky (m = n-1).
+ * @brief Probes SPD-ness by attempting a full-band Cholesky (m = n - 1).
  */
 template <class T> bool is_spd(const T *A, std::size_t n) {
   static_assert(std::is_floating_point_v<T>,
                 "is_spd: T must be floating point");
-  // Pack dense A into banded storage B_data with m = n-1
+
+  // Pack dense A into banded storage B_data with m = n - 1
   std::size_t m = n > 0 ? n - 1 : 0;
   std::vector<T> B_data((m + 1) * n);
+
   for (std::size_t j = 0; j < n; ++j) {
     for (std::size_t i = j; i < n; ++i) {
-      // B(i-j, j) = A(i,j)
+      // B(i - j, j) = A(i,j)
       B_data[(i - j) * n + j] = A[i * n + j];
     }
   }
@@ -137,11 +155,14 @@ T condition_estimate(const T *A, std::size_t n, unsigned power_iters = 5) {
   std::vector<T> x(n), y(n), tmp(n);
   std::mt19937_64 gen(std::random_device{}());
   std::uniform_real_distribution<T> dist(T(-1), T(1));
+
   // init x randomly
   for (auto &xi : x)
     xi = dist(gen);
+
   // normalize x
   T norm_x = std::sqrt(std::inner_product(x.begin(), x.end(), x.begin(), T(0)));
+
   for (auto &xi : x)
     xi /= norm_x;
 
@@ -201,9 +222,9 @@ T condition_estimate(const T *A, std::size_t n, unsigned power_iters = 5) {
     for (std::size_t i = 0; i < n; ++i)
       x[i] = y[i] / mu;
   }
-  // λ_min ≈ 1/μ
+  // \lambda_min ≈ 1 / \mu
   T lambda_min = T(1) / mu;
-  // cond(B) = λ_max / λ_min; cond(A) = sqrt(cond(B))
+  // cond(B) = \lambda_max / \lambda_min; cond(A) = sqrt(cond(B))
   return std::sqrt(lambda_max / lambda_min);
 }
 
