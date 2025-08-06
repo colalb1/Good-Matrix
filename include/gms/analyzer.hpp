@@ -92,37 +92,57 @@ bool is_spd(const T *A, std::size_t n,
  * @brief Estimates the bandwidth of a matrix A.
  */
 template <class T>
-std::size_t bandwidth(const T *A, std::size_t n,
-                      BandType type = BandType::MAX) {
+std::size_t bandwidth(const T *A, std::size_t n, BandType type = BandType::MAX,
+                      T tol = std::numeric_limits<T>::epsilon()) {
   static_assert(std::is_floating_point_v<T>,
                 "bandwidth: T must be floating point");
+  if (n <= 1)
+    return 0;
+
   std::size_t bandwidth = 0;
 
-  for (std::size_t i = 0; i < n; ++i) {
-    for (std::size_t j = 0; j < n; ++j) {
-      if (A[i * n + j] == T(0))
-        continue;
+  bool is_nonzero = [tol](T val) { return std::abs(val) > tol; };
 
-      std::size_t diff = std::abs(i - j);
-
-      switch (type) {
-      case BandType::MAX:
-      default:
-        bandwidth = std::max(bandwidth, diff);
-
-      case BandType::LOWER:
-        if (i >= j)
+  if (type == BandType::LOWER) {
+    // For each row, find the first non-zero from the left edge
+    for (std::size_t i = 1; i < n; ++i) {
+      for (std::size_t j = 0; j < i; ++j) {
+        if (is_nonzero(A[i * n + j])) {
           bandwidth = std::max(bandwidth, i - j);
-        break;
-
-      case BandType::UPPER:
-        if (j >= i)
+          break;
+        }
+      }
+    }
+  } else if (type == BandType::UPPER) {
+    // For each row, find the first non-zero from the right edge
+    for (std::size_t i = 0; i < n - 1; ++i) {
+      for (std::size_t j = n - 1; j > i; --j) {
+        if (is_nonzero(A[i * n + j])) {
           bandwidth = std::max(bandwidth, j - i);
-        break;
+          break;
+        }
+      }
+    }
+  } else {
+    // MAX checks both sides
+    for (std::size_t i = 0; i < n; ++i) {
+      for (std::size_t j = 0; j < i; ++j) {
+        if (is_nonzero(A[i * n + j])) {
+          bandwidth = std::max(bandwidth, i - j);
+          break;
+        }
+      }
+      if (i < n - 1) {
+        for (std::size_t j = n - 1; j > i; --j) {
+          if (is_nonzero(A[i * n + j])) {
+            bandwidth = std::max(bandwidth, j - i);
+            break;
+          }
+        }
       }
     }
   }
-  // $$ \text{bandwidth}_{\max} = \max_{a_{ij}\neq 0}|i - j| $$
+
   return bandwidth;
 }
 
@@ -133,13 +153,16 @@ template <class T>
 bool is_diagonally_dominant(const T *A, std::size_t n, bool strict = false) {
   static_assert(std::is_floating_point_v<T>,
                 "is_diagonally_dominant: T must be floating point");
+
   for (std::size_t i = 0; i < n; ++i) {
     T sum = T(0);
+
     for (std::size_t j = 0; j < n; ++j) {
       if (i == j)
         continue;
       sum += std::abs(A[i * n + j]);
     }
+
     // $$ |a_{ii}| %s \sum_{j\neq i}|a_{ij}| $$
     if (strict) {
       if (!(std::abs(A[i * n + i]) > sum))
@@ -174,7 +197,7 @@ T condition_estimate(const T *A, std::size_t n, unsigned power_iters = 5) {
   for (auto &xi : x)
     xi /= norm_x;
 
-  // power iteration for max eigenvalue of B = A^T A
+  // power iteration for max eigenvalue of bandwidth = A^T A
   T lambda_max = T(0);
   for (unsigned iter = 0; iter < power_iters; ++iter) {
     // y = A * x
@@ -214,9 +237,10 @@ T condition_estimate(const T *A, std::size_t n, unsigned power_iters = 5) {
   if (!banded_cholesky_inplace_lower(B_data.data(), n, m)) {
     return std::numeric_limits<T>::infinity();
   }
-  auto solve_B = [&](const std::vector<T> &L_data, const std::vector<T> &b,
-                     std::vector<T> &out) {
-    gms::banded_forward_subst_lower(L_data.data(), n, m, b.data(), out.data());
+  auto solve_B = [&](const std::vector<T> &L_data,
+                     const std::vector<T> &bandwidth, std::vector<T> &out) {
+    gms::banded_forward_subst_lower(L_data.data(), n, m, bandwidth.data(),
+                                    out.data());
     gms::banded_backward_subst_upper_from_lower_transpose(
         L_data.data(), n, m, out.data(), out.data());
   };
@@ -232,7 +256,8 @@ T condition_estimate(const T *A, std::size_t n, unsigned power_iters = 5) {
   }
   // \lambda_min ≈ 1 / \mu
   T lambda_min = T(1) / mu;
-  // cond(B) = \lambda_max / \lambda_min; cond(A) = sqrt(cond(B))
+  // cond(bandwidth) = \lambda_max / \lambda_min; cond(A) =
+  // sqrt(cond(bandwidth))
   return std::sqrt(lambda_max / lambda_min);
 }
 
