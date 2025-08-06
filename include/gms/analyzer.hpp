@@ -182,40 +182,42 @@ template <class T>
 T condition_estimate(const T *A, std::size_t n, unsigned power_iters = 5) {
   static_assert(std::is_floating_point_v<T>,
                 "condition_estimate: T must be floating point");
-  // Allocate workspace
   std::vector<T> x(n), y(n), tmp(n);
   std::mt19937_64 gen(std::random_device{}());
   std::uniform_real_distribution<T> dist(T(-1), T(1));
 
-  // init x randomly
   for (auto &xi : x)
     xi = dist(gen);
 
-  // normalize x
   T norm_x = std::sqrt(std::inner_product(x.begin(), x.end(), x.begin(), T(0)));
 
   for (auto &xi : x)
     xi /= norm_x;
 
-  // power iteration for max eigenvalue of bandwidth = A^T A
+  // Power iteration
   T lambda_max = T(0);
+
   for (unsigned iter = 0; iter < power_iters; ++iter) {
     // y = A * x
     for (std::size_t i = 0; i < n; ++i) {
       // $$ y_i = \sum_j A_{ij} x_j $$
       y[i] = std::inner_product(A + i * n, A + i * n + n, x.begin(), T(0));
     }
+
     // tmp = A^T * y
     for (std::size_t j = 0; j < n; ++j) {
       // $$ (A^T y)_j = \sum_i A_{ij} y_i $$
       tmp[j] = T(0);
+
       for (std::size_t i = 0; i < n; ++i)
         tmp[j] += A[i * n + j] * y[i];
     }
+
     lambda_max = std::inner_product(x.begin(), x.end(), tmp.begin(), T(0));
-    // normalize tmp -> x
+
     T norm_tmp = std::sqrt(
         std::inner_product(tmp.begin(), tmp.end(), tmp.begin(), T(0)));
+
     for (std::size_t i = 0; i < n; ++i)
       x[i] = tmp[i] / norm_tmp;
   }
@@ -223,20 +225,30 @@ T condition_estimate(const T *A, std::size_t n, unsigned power_iters = 5) {
   // Inverse power iteration for min eigenvalue: solve B_data * y = x
   std::size_t m = n > 0 ? n - 1 : 0;
   std::vector<T> B_data((m + 1) * n);
-  // pack B_data = A^T A in banded form
+
+  // B_data = A^T A in banded form
   for (std::size_t j = 0; j < n; ++j) {
-    for (std::size_t i = j; i < n; ++i) {
-      // compute (A^T A)_{ij} = row i of A^T dot row j of A^T i.e. col i of A
-      // dot col j of A
+    std::size_t i_max = std::min(n - 1, j + 2 * m); // bandwidth is at most 2m
+    for (std::size_t i = j; i <= i_max; ++i) {
       T sum = T(0);
-      for (std::size_t k = 0; k < n; ++k)
+
+      // overlap of the non-zero bands in column i and column j
+      std::size_t k_begin = std::max(j > m ? j - m : 0, i > m ? i - m : 0);
+      std::size_t k_end = std::min({n - 1, j + m, i + m});
+
+      for (std::size_t k = k_begin; k <= k_end; ++k)
         sum += A[k * n + i] * A[k * n + j];
+
       B_data[(i - j) * n + j] = sum;
     }
   }
+
   if (!banded_cholesky_inplace_lower(B_data.data(), n, m)) {
     return std::numeric_limits<T>::infinity();
   }
+
+  // THIS IS WHERE YOU STOPPED CHECKING!!!!!!!!!!!!!!
+
   auto solve_B = [&](const std::vector<T> &L_data,
                      const std::vector<T> &bandwidth, std::vector<T> &out) {
     gms::banded_forward_subst_lower(L_data.data(), n, m, bandwidth.data(),
@@ -244,6 +256,7 @@ T condition_estimate(const T *A, std::size_t n, unsigned power_iters = 5) {
     gms::banded_backward_subst_upper_from_lower_transpose(
         L_data.data(), n, m, out.data(), out.data());
   };
+
   // init x randomly
   for (auto &xi : x)
     xi = dist(gen);
