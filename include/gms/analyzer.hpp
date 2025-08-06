@@ -1,10 +1,13 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <execution>
 #include <limits>
 #include <numeric>
 #include <random>
+#include <type_traits>
 #include <vector>
 
 #include "gms/banded.hpp"
@@ -20,18 +23,15 @@ template <class T>
 double density(const T *A, std::size_t n,
                T tol = std::numeric_limits<T>::epsilon()) {
   static_assert(std::is_floating_point_v<T>,
-                "density_optimized: T must be floating point");
+                "density: T must be floating point");
   if (n == 0)
     return 0.0;
 
-  std::size_t count = 0;
   const std::size_t total_elements = n * n;
 
-  for (std::size_t i = 0; i < total_elements; ++i) {
-    if (std::abs(A[i]) > tol) {
-      ++count;
-    }
-  }
+  std::size_t count =
+      std::count_if(std::execution::par, A, A + total_elements,
+                    [tol](T val) { return std::abs(val) > tol; });
 
   return static_cast<double>(count) / static_cast<double>(total_elements);
 }
@@ -43,26 +43,26 @@ template <class T>
 bool is_symmetric(const T *A, std::size_t n,
                   T tol = std::numeric_limits<T>::epsilon()) {
   static_assert(std::is_floating_point_v<T>,
-                "is_symmetric_optimized: T must be floating point");
+                "is_symmetric: T must be floating point");
 
   // Trivial matrix is symmetric
   if (n <= 1)
     return true;
 
-  for (std::size_t i = 0; i < n - 1; ++i) {
-    const T *upper_ptr = A + i * n + (i + 1);
-    const T *lower_ptr = A + (i + 1) * n + i;
+  // Create a vector of row indices [0, 1, ..., n-2].
+  std::vector<std::size_t> row_indices(n - 1);
+  std::iota(row_indices.begin(), row_indices.end(), 0);
 
-    // Compare the rest of the row (upper) with the rest of the column (lower).
-    for (std::size_t j = i + 1; j < n; ++j) {
-      if (std::abs(*upper_ptr - *lower_ptr) > tol)
-        return false;
-
-      upper_ptr++;    // Moves pointer to A[i, j+1]
-      lower_ptr += n; // Moves pointer to A[j+1, i]
-    }
-  }
-  return true;
+  // Use a parallel `all_of` to check rows
+  return std::all_of(std::execution::par, row_indices.cbegin(),
+                     row_indices.cend(), [&](std::size_t i) {
+                       for (std::size_t j = i + 1; j < n; ++j) {
+                         if (std::abs(A[i * n + j] - A[j * n + i]) > tol) {
+                           return false;
+                         }
+                       }
+                       return true;
+                     });
 }
 
 /**
