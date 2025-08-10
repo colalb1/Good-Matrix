@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "banded.hpp"
+#include "dense.hpp"
 
 namespace gms {
 
