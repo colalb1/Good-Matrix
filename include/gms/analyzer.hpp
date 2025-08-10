@@ -229,6 +229,7 @@ T condition_estimate(const T *A, std::size_t n, unsigned power_iters = 5) {
   // B_data = A^T A in banded form
   for (std::size_t j = 0; j < n; ++j) {
     std::size_t i_max = std::min(n - 1, j + 2 * m); // bandwidth is at most 2m
+
     for (std::size_t i = j; i <= i_max; ++i) {
       T sum = T(0);
 
@@ -260,15 +261,19 @@ T condition_estimate(const T *A, std::size_t n, unsigned power_iters = 5) {
   // init x randomly
   for (auto &xi : x)
     xi = dist(gen);
+
   T mu = T(0);
+
   for (unsigned iter = 0; iter < power_iters; ++iter) {
     solve_B(B_data, x, y);
     mu = std::sqrt(std::inner_product(y.begin(), y.end(), y.begin(), T(0)));
+
     for (std::size_t i = 0; i < n; ++i)
       x[i] = y[i] / mu;
   }
-  // \lambda_min ≈ 1 / \mu
+  // \lambda_min \approx 1 / \mu
   T lambda_min = T(1) / mu;
+
   // cond(bandwidth) = \lambda_max / \lambda_min; cond(A) =
   // sqrt(cond(bandwidth))
   return std::sqrt(lambda_max / lambda_min);
