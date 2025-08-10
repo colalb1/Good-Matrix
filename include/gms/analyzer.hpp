@@ -160,7 +160,7 @@ bool is_diagonally_dominant(const T *A, std::size_t n, bool strict = false) {
   std::vector<std::size_t> row_indices(n);
   std::iota(row_indices.begin(), row_indices.end(), 0);
 
-  return std::all_of(std::execution::par, row_indices.cbegin(),
+  return std::all_of(row_indices.cbegin(),
                      row_indices.cend(), [&](std::size_t i) {
                        T sum = T(0);
 
