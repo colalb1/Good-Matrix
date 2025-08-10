@@ -31,9 +31,8 @@ double density(const T *A, std::size_t n,
 
   const std::size_t total_elements = n * n;
 
-  std::size_t count =
-      std::count_if(A, A + total_elements,
-                    [tol](T val) { return std::abs(val) > tol; });
+  std::size_t count = std::count_if(
+      A, A + total_elements, [tol](T val) { return std::abs(val) > tol; });
 
   return static_cast<double>(count) / static_cast<double>(total_elements);
 }
@@ -56,8 +55,8 @@ bool is_symmetric(const T *A, std::size_t n,
   std::iota(row_indices.begin(), row_indices.end(), 0);
 
   // Use a parallel `all_of` to check rows
-  return std::all_of(row_indices.cbegin(),
-                     row_indices.cend(), [&](std::size_t i) {
+  return std::all_of(row_indices.cbegin(), row_indices.cend(),
+                     [&](std::size_t i) {
                        for (std::size_t j = i + 1; j < n; ++j) {
                          if (std::abs(A[i * n + j] - A[j * n + i]) > tol) {
                            return false;
@@ -102,7 +101,7 @@ std::size_t bandwidth(const T *A, std::size_t n, BandType type = BandType::MAX,
 
   std::size_t bandwidth = 0;
 
-  bool is_nonzero = [tol](T val) { return std::abs(val) > tol; };
+  auto is_nonzero = [tol](T val) { return std::abs(val) > tol; };
 
   if (type == BandType::LOWER) {
     // For each row, find the first non-zero from the left edge
@@ -161,8 +160,8 @@ bool is_diagonally_dominant(const T *A, std::size_t n, bool strict = false) {
   std::vector<std::size_t> row_indices(n);
   std::iota(row_indices.begin(), row_indices.end(), 0);
 
-  return std::all_of(row_indices.cbegin(),
-                     row_indices.cend(), [&](std::size_t i) {
+  return std::all_of(row_indices.cbegin(), row_indices.cend(),
+                     [&](std::size_t i) {
                        T sum = T(0);
 
                        for (std::size_t j = 0; j < n; ++j) {
