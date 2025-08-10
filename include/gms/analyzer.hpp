@@ -11,7 +11,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "gms/banded.hpp"
+#include "banded.hpp"
 
 namespace gms {
 
