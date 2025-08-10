@@ -279,4 +279,118 @@ T condition_estimate(const T *A, std::size_t n, unsigned power_iters = 5) {
   return std::sqrt(lambda_max / lambda_min);
 }
 
+/**
+ * @brief Estimates the rank of a matrix A using CPQR decomposition.
+ * @details Performs a QR decomposition with column pivoting.
+ * The rank is estimated by counting the number of non-negligible
+ * diagonal elements in the resulting upper triangular matrix R.
+ * @param A Pointer to the matrix data.
+ * @param n Dimension of the square matrix A (n x n).
+ * @param tol Tolerance for considering a singular value (or diagonal element)
+ * as non-zero. Defaults to machine epsilon.
+ * @return The estimated rank of the matrix.
+ */
+template <class T>
+std::size_t rank_estimate_cpqr(const T *A, std::size_t n,
+                               T tol = std::numeric_limits<T>::epsilon()) {
+  static_assert(std::is_floating_point_v<T>,
+                "rank_estimate_cpqr: T must be floating point");
+  if (n == 0)
+    return 0;
+
+  // Matrix data
+  std::vector<T> R_data(A, A + n * n);
+  // $R$ matrix view
+  std::mdspan<T, std::dextents<std::size_t, 2>> R_matrix_view(R_data.data(), n,
+                                                              n);
+
+  // $P$ pivot array
+  std::vector<std::size_t> p(n);
+  std::iota(p.begin(), p.end(), 0);
+
+  // QR decomposition with column pivoting loop
+  for (std::size_t k = 0; k < n; ++k) {
+    // Find column with $\max \|R_{k:n, j}\|_2$
+    std::size_t piv_col_idx_in_p = k;
+    T max_norm_sq = T(0);
+
+    for (std::size_t j = k; j < n; ++j) {
+      T current_norm_sq = T(0);
+      // $\sum_{i=k}^{n-1} R_{i, p_j}^2$
+      for (std::size_t i = k; i < n; ++i) {
+        current_norm_sq += R_matrix_view(i, p[j]) * R_matrix_view(i, p[j]);
+      }
+
+      if (current_norm_sq > max_norm_sq) {
+        max_norm_sq = current_norm_sq;
+        piv_col_idx_in_p = j;
+      }
+    }
+
+    // Swap $p_k \leftrightarrow p_{\text{piv}}$
+    if (piv_col_idx_in_p != k) {
+      std::swap(p[k], p[piv_col_idx_in_p]);
+    }
+
+    // Compute Householder reflector
+    // $x \gets R_{k:n, p_k}$
+    std::vector<T> x_vec(n - k);
+    for (std::size_t i = k; i < n; ++i) {
+      x_vec[i - k] = R_matrix_view(i, p[k]);
+    }
+
+    // $\sigma^2 = \sum_{i=1}^{n-k-1} x_i^2$
+    T sigma_sq = T(0);
+    if (n - k > 1) {
+      for (std::size_t i = 1; i < n - k; ++i) {
+        sigma_sq += x_vec[i] * x_vec[i];
+      }
+    }
+
+    T alpha = x_vec[0];
+    T beta_norm = std::sqrt(alpha * alpha + sigma_sq); // $\beta = \|x\|_2$
+
+    // $\text{sign}(\alpha)$
+    T sign_alpha = (alpha >= T(0)) ? T(1) : T(-1);
+    if (alpha == T(0))
+      sign_alpha = T(1);
+
+    // $u_0 \gets u_0 + \text{sign}(u_0)\|u\|_2$
+    x_vec[0] += sign_alpha * beta_norm;
+
+    // $\|u\|_2^2$
+    T u_vec_norm_sq =
+        std::inner_product(x_vec.begin(), x_vec.end(), x_vec.begin(), T(0));
+
+    // Apply Householder transformation $R \gets (I - 2
+    // \frac{uu^T}{\|u\|_2^2})R$
+    if (u_vec_norm_sq > tol * tol) {
+      for (std::size_t j = k; j < n; ++j) {
+        // $u^T R_{k:n, p_j}$
+        T dot_prod_u_col = T(0);
+        for (std::size_t i = k; i < n; ++i) {
+          dot_prod_u_col += x_vec[i - k] * R_matrix_view(i, p[j]);
+        }
+        // $\tau = \frac{2 u^T R_{k:n, p_j}}{\|u\|_2^2}$
+        T factor = (T(2) * dot_prod_u_col) / u_vec_norm_sq;
+
+        // $R_{k:n, p_j} \gets R_{k:n, p_j} - \tau u$
+        for (std::size_t i = k; i < n; ++i) {
+          R_matrix_view(i, p[j]) -= factor * x_vec[i - k];
+        }
+      }
+    }
+  }
+
+  // Rank estimation: $\text{rank} = \sum_{i=0}^{n-1} I(|R_{i, p_i}| >
+  // \text{tol})$
+  std::size_t rank = 0;
+  for (std::size_t i = 0; i < n; ++i) {
+    if (std::abs(R_matrix_view(i, p[i])) > tol) {
+      rank++;
+    }
+  }
+  return rank;
+}
+
 } // namespace gms
