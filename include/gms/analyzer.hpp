@@ -31,7 +31,7 @@ double density(const T *A, std::size_t n,
   const std::size_t total_elements = n * n;
 
   std::size_t count =
-      std::count_if(std::execution::par, A, A + total_elements,
+      std::count_if(A, A + total_elements,
                     [tol](T val) { return std::abs(val) > tol; });
 
   return static_cast<double>(count) / static_cast<double>(total_elements);
@@ -55,7 +55,7 @@ bool is_symmetric(const T *A, std::size_t n,
   std::iota(row_indices.begin(), row_indices.end(), 0);
 
   // Use a parallel `all_of` to check rows
-  return std::all_of(std::execution::par, row_indices.cbegin(),
+  return std::all_of(row_indices.cbegin(),
                      row_indices.cend(), [&](std::size_t i) {
                        for (std::size_t j = i + 1; j < n; ++j) {
                          if (std::abs(A[i * n + j] - A[j * n + i]) > tol) {
