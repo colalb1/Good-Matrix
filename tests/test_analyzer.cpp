@@ -277,6 +277,109 @@ void test_condition_estimate() {
 }
 
 /**
+ * @brief Tests for the rank_estimate_cpqr() function.
+ * Checks full-rank, rank-deficient, and trivial cases.
+ */
+void test_rank_estimate_cpqr() {
+  std::cout << "\n--- Testing rank_estimate_cpqr() ---\n";
+  const double tol = 1e-9; // Standard tolerance for floating-point comparisons
+
+  // Test 1: Empty matrix (n=0)
+  std::vector<double> A_empty;
+  size_t rank_empty = gms::rank_estimate_cpqr(A_empty.data(), 0, tol);
+  if (rank_empty == 0) {
+    std::cout << "✅ Test Case 1 (Empty Matrix) Passed\n";
+  } else {
+    std::cerr << "❌ Test Case 1 (Empty Matrix) Failed: Expected 0, got "
+              << rank_empty << "\n";
+  }
+
+  // Test 2: 1x1 full-rank matrix
+  std::vector<double> A_1x1 = {5.0};
+  std::vector<double> A_1x1_copy = A_1x1; // Copy for in-place modification
+  size_t rank_1x1 = gms::rank_estimate_cpqr(A_1x1_copy.data(), 1, tol);
+  if (rank_1x1 == 1) {
+    std::cout << "✅ Test Case 2 (1x1 Full Rank) Passed\n";
+  } else {
+    std::cerr << "❌ Test Case 2 (1x1 Full Rank) Failed: Expected 1, got "
+              << rank_1x1 << "\n";
+  }
+
+  // Test 3: 1x1 zero matrix (rank 0)
+  std::vector<double> A_1x1_zero = {0.0};
+  std::vector<double> A_1x1_zero_copy = A_1x1_zero;
+  size_t rank_1x1_zero = gms::rank_estimate_cpqr(A_1x1_zero_copy.data(), 1, tol);
+  if (rank_1x1_zero == 0) {
+    std::cout << "✅ Test Case 3 (1x1 Zero Rank) Passed\n";
+  } else {
+    std::cerr << "❌ Test Case 3 (1x1 Zero Rank) Failed: Expected 0, got "
+              << rank_1x1_zero << "\n";
+  }
+
+  // Test 4: Identity matrix (full rank)
+  const std::size_t n_id = 3;
+  std::vector<double> A_identity(n_id * n_id, 0.0);
+  for (size_t i = 0; i < n_id; ++i)
+    A_identity[i * n_id + i] = 1.0;
+  std::vector<double> A_identity_copy = A_identity;
+  size_t rank_identity = gms::rank_estimate_cpqr(A_identity_copy.data(), n_id, tol);
+  if (rank_identity == n_id) {
+    std::cout << "✅ Test Case 4 (Identity Matrix) Passed: Expected "
+              << n_id << ", got " << rank_identity << "\n";
+  } else {
+    std::cerr << "❌ Test Case 4 (Identity Matrix) Failed: Expected "
+              << n_id << ", got " << rank_identity << "\n";
+  }
+
+  // Test 5: Full rank 3x3 matrix
+  // [1 2 3]
+  // [0 1 2]
+  // [0 0 1]
+  const std::size_t n_full = 3;
+  std::vector<double> A_full_rank = {1, 2, 3, 0, 1, 2, 0, 0, 1};
+  std::vector<double> A_full_rank_copy = A_full_rank;
+  size_t rank_full = gms::rank_estimate_cpqr(A_full_rank_copy.data(), n_full, tol);
+  if (rank_full == n_full) {
+    std::cout << "✅ Test Case 5 (Full Rank Matrix) Passed: Expected "
+              << n_full << ", got " << rank_full << "\n";
+  } else {
+    std::cerr << "❌ Test Case 5 (Full Rank Matrix) Failed: Expected "
+              << n_full << ", got " << rank_full << "\n";
+  }
+
+  // Test 6: Rank-deficient matrix (rank 1)
+  // [1 2 3]
+  // [2 4 6] (2 * row 1)
+  // [3 6 9] (3 * row 1)
+  const std::size_t n_deficient = 3;
+  std::vector<double> A_rank_deficient = {1, 2, 3, 2, 4, 6, 3, 6, 9};
+  std::vector<double> A_rank_deficient_copy = A_rank_deficient;
+  size_t rank_deficient = gms::rank_estimate_cpqr(A_rank_deficient_copy.data(), n_deficient, tol);
+  if (rank_deficient == 1) {
+    std::cout << "✅ Test Case 6 (Rank-Deficient Matrix - Rank 1) Passed: Expected 1, got "
+              << rank_deficient << "\n";
+  } else {
+    std::cerr << "❌ Test Case 6 (Rank-Deficient Matrix - Rank 1) Failed: Expected 1, got "
+              << rank_deficient << "\n";
+  }
+
+  // Test 7: Another rank-deficient matrix (rank 2)
+  // [1 0 1]
+  // [0 1 1]
+  // [1 1 2] (row 1 + row 2)
+  std::vector<double> A_rank_deficient2 = {1, 0, 1, 0, 1, 1, 1, 1, 2};
+  std::vector<double> A_rank_deficient2_copy = A_rank_deficient2;
+  size_t rank_deficient2 = gms::rank_estimate_cpqr(A_rank_deficient2_copy.data(), n_deficient, tol);
+  if (rank_deficient2 == 2) {
+    std::cout << "✅ Test Case 7 (Rank-Deficient Matrix - Rank 2) Passed: Expected 2, got "
+              << rank_deficient2 << "\n";
+  } else {
+    std::cerr << "❌ Test Case 7 (Rank-Deficient Matrix - Rank 2) Failed: Expected 2, got "
+              << rank_deficient2 << "\n";
+  }
+}
+
+/**
  * @brief Main function to run all test suites.
  */
 int main() {
@@ -286,6 +389,7 @@ int main() {
   test_bandwidth();
   test_is_diagonally_dominant();
   test_condition_estimate();
+  test_rank_estimate_cpqr();
 
   return 0;
 }
