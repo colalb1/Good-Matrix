@@ -39,11 +39,10 @@ bool cholesky_inplace_lower(T *A, std::size_t n, std::size_t row_stride,
     max_diag = std::max(max_diag, std::abs(A[k * row_stride + k]));
 
     // Compute $d_k = A_{kk} - \sum_{j=0}^{k-1} L_{kj}^2$
-    T *row_ptr = A + k * row_stride;
-    T residual_diag_correction =
-        std::accumulate(row_ptr, row_ptr + k, T{0},
-                        [](T acc, T val) { return acc + val * val; });
-    T d = A[k * row_stride + k] - residual_diag_correction;
+    T d = A[k * row_stride + k];
+    for (std::size_t j = 0; j < k; ++j) {
+        d -= A[k * row_stride + j] * A[k * row_stride + j];
+    }
 
     // Check if the matrix is positive definite
     const T tol = std::max(eps_rel * max_diag, T(10) * eps * max_diag);
@@ -57,11 +56,13 @@ bool cholesky_inplace_lower(T *A, std::size_t n, std::size_t row_stride,
 
     // Compute $L_ik = \frac{1}{L_kk}(A_ik - \sum_{j=0)^{k - 1} L_ij * L_kj$
     for (std::size_t i = k + 1; i < n; ++i) {
-      T inner_product = std::inner_product(
-          A + i * row_stride, A + i * row_stride + k, A + k * row_stride, T{0});
-
-      A[i * row_stride + k] = (A[i * row_stride + k] - inner_product) / L_kk;
-    }
+      T sum = 0;
+      
+      for (std::size_t j = 0; j < k; ++j) {
+          sum += A[i * row_stride + j] * A[k * row_stride + j];
+      }
+      A[i * row_stride + k] = (A[i * row_stride + k] - sum) / A[k * row_stride + k];
+  }
 
     // Zero out the upper triangle
     // This is unnecessary, but more of a sanity check
