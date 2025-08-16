@@ -248,8 +248,6 @@ T condition_estimate(const T *A, std::size_t n, unsigned power_iters = 5) {
     return std::numeric_limits<T>::infinity();
   }
 
-  // THIS IS WHERE YOU STOPPED CHECKING!!!!!!!!!!!!!!
-
   auto solve_B = [&](const std::vector<T> &L_data,
                      const std::vector<T> &bandwidth, std::vector<T> &out) {
     gms::banded_forward_subst_lower(L_data.data(), n, m, bandwidth.data(),
@@ -281,32 +279,26 @@ T condition_estimate(const T *A, std::size_t n, unsigned power_iters = 5) {
 
 /**
  * @brief Estimates the rank of a matrix A using CPQR decomposition.
- * @details Performs a QR decomposition with column pivoting.
- * The rank is estimated by counting the number of non-negligible
+ * @details This function performs a QR decomposition with column pivoting.
+ * The rank is then estimated by counting the number of non-negligible
  * diagonal elements in the resulting upper triangular matrix R.
- * @param A Pointer to the matrix data.
+ * @param A Pointer to the matrix data
  * @param n Dimension of the square matrix A (n x n).
  * @param tol Tolerance for considering a singular value (or diagonal element)
- * as non-zero. Defaults to machine epsilon.
+ * as non-zero.
  * @return The estimated rank of the matrix.
  */
 template <class T>
-std::size_t rank_estimate_cpqr(const T *A, std::size_t n,
+std::size_t rank_estimate_cpqr(T *A, std::size_t n, // Removed const
                                T tol = std::numeric_limits<T>::epsilon()) {
   static_assert(std::is_floating_point_v<T>,
                 "rank_estimate_cpqr: T must be floating point");
   if (n == 0)
     return 0;
 
-  // Matrix data
-  std::vector<T> R_data(A, A + n * n);
-  // $R$ matrix view
-  std::mdspan<T, std::dextents<std::size_t, 2>> R_matrix_view(R_data.data(), n,
-                                                              n);
-
   // $P$ pivot array
   std::vector<std::size_t> p(n);
-  std::iota(p.begin(), p.end(), 0);
+  std::iota(p.begin(), p.end(), 0); // $P = I$
 
   // QR decomposition with column pivoting loop
   for (std::size_t k = 0; k < n; ++k) {
@@ -316,11 +308,10 @@ std::size_t rank_estimate_cpqr(const T *A, std::size_t n,
 
     for (std::size_t j = k; j < n; ++j) {
       T current_norm_sq = T(0);
-      // $\sum_{i=k}^{n-1} R_{i, p_j}^2$
+      // $\sum_{i=k}^{n-1} A_{i, p_j}^2$ (accessing directly via A)
       for (std::size_t i = k; i < n; ++i) {
-        current_norm_sq += R_matrix_view(i, p[j]) * R_matrix_view(i, p[j]);
+        current_norm_sq += A[i * n + p[j]] * A[i * n + p[j]];
       }
-
       if (current_norm_sq > max_norm_sq) {
         max_norm_sq = current_norm_sq;
         piv_col_idx_in_p = j;
@@ -333,10 +324,10 @@ std::size_t rank_estimate_cpqr(const T *A, std::size_t n,
     }
 
     // Compute Householder reflector
-    // $x \gets R_{k:n, p_k}$
+    // $x \gets A_{k:n, p_k}$ (accessing directly via A)
     std::vector<T> x_vec(n - k);
     for (std::size_t i = k; i < n; ++i) {
-      x_vec[i - k] = R_matrix_view(i, p[k]);
+      x_vec[i - k] = A[i * n + p[k]];
     }
 
     // $\sigma^2 = \sum_{i=1}^{n-k-1} x_i^2$
@@ -362,31 +353,31 @@ std::size_t rank_estimate_cpqr(const T *A, std::size_t n,
     T u_vec_norm_sq =
         std::inner_product(x_vec.begin(), x_vec.end(), x_vec.begin(), T(0));
 
-    // Apply Householder transformation $R \gets (I - 2
-    // \frac{uu^T}{\|u\|_2^2})R$
+    // Apply Householder transformation $A \gets (I - 2
+    // \frac{uu^T}{\|u\|_2^2})A$ (applying to A directly)
     if (u_vec_norm_sq > tol * tol) {
       for (std::size_t j = k; j < n; ++j) {
-        // $u^T R_{k:n, p_j}$
+        // $u^T A_{k:n, p_j}$
         T dot_prod_u_col = T(0);
         for (std::size_t i = k; i < n; ++i) {
-          dot_prod_u_col += x_vec[i - k] * R_matrix_view(i, p[j]);
+          dot_prod_u_col += x_vec[i - k] * A[i * n + p[j]];
         }
-        // $\tau = \frac{2 u^T R_{k:n, p_j}}{\|u\|_2^2}$
+        // $\tau = \frac{2 u^T A_{k:n, p_j}}{\|u\|_2^2}$
         T factor = (T(2) * dot_prod_u_col) / u_vec_norm_sq;
 
-        // $R_{k:n, p_j} \gets R_{k:n, p_j} - \tau u$
+        // $A_{k:n, p_j} \gets A_{k:n, p_j} - \tau u$
         for (std::size_t i = k; i < n; ++i) {
-          R_matrix_view(i, p[j]) -= factor * x_vec[i - k];
+          A[i * n + p[j]] -= factor * x_vec[i - k];
         }
       }
     }
   }
 
-  // Rank estimation: $\text{rank} = \sum_{i=0}^{n-1} I(|R_{i, p_i}| >
-  // \text{tol})$
+  // Rank estimation: $\text{rank} = \sum_{i=0}^{n-1} I(|A_{i, p_i}| >
+  // \text{tol})$ (using A directly)
   std::size_t rank = 0;
   for (std::size_t i = 0; i < n; ++i) {
-    if (std::abs(R_matrix_view(i, p[i])) > tol) {
+    if (std::abs(A[i * n + p[i]]) > tol) {
       rank++;
     }
   }
