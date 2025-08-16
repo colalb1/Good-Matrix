@@ -125,7 +125,7 @@ void test_is_spd() {
 
   // Test 1: SPD matrix (diagonally dominant with positive diagonal)
   std::vector<double> A_spd = {4, 1, 1, 1, 3, 0, 1, 0, 2};
-  if (gms::is_spd(A_spd.data(), 9, m)) {
+  if (gms::is_spd(A_spd.data(), 3, 3)) {
     std::cout << "✅ Test Case 1 (SPD Matrix) Passed\n";
   } else {
     std::cerr << "❌ Test Case 1 (SPD Matrix) Failed\n";
