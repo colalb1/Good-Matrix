@@ -70,7 +70,7 @@ bool is_symmetric(const T *A, std::size_t n,
  * @brief Probes SPD-ness by attempting a full-band Cholesky (m = n - 1)
  */
 template <class T>
-bool is_spd(const T *A, std::size_t n,
+bool is_spd(const T *A, std::size_t n, std::size_t row_stride,
             T tol = std::numeric_limits<T>::epsilon()) {
   static_assert(std::is_floating_point_v<T>,
                 "is_spd: T must be floating point");
@@ -85,7 +85,7 @@ bool is_spd(const T *A, std::size_t n,
   std::vector<T> A_copy(A, A + n * n);
 
   // Check positive definiteness
-  return cholesky_inplace_lower(A_copy.data(), n, tol);
+  return cholesky_inplace_lower(A_copy.data(), n, row_stride, tol);
 }
 
 /**
@@ -353,7 +353,8 @@ std::size_t rank_estimate_cpqr(T *A, std::size_t n,
     x_vec[0] += sign_alpha * beta_norm;
 
     // $\|u\|_2^2$
-    T u_vec_norm_sq = std::inner_product(x_vec.begin(), x_vec.end(), x_vec.begin(), T(0));
+    T u_vec_norm_sq =
+        std::inner_product(x_vec.begin(), x_vec.end(), x_vec.begin(), T(0));
 
     // Apply Householder $A \gets (I - 2\frac{uu^T}{\|u\|_2^2})A$
     if (u_vec_norm_sq > tol * tol) {
@@ -377,7 +378,8 @@ std::size_t rank_estimate_cpqr(T *A, std::size_t n,
     }
   }
 
-  // Rank estimate: $\text{rank} = \sum_{i=0}^{n-1} I(|A_{i, p_i}| > \text{tol})$
+  // Rank estimate: $\text{rank} = \sum_{i=0}^{n-1} I(|A_{i, p_i}| >
+  // \text{tol})$
   std::size_t rank = 0;
 
   for (std::size_t i = 0; i < n; ++i) {
