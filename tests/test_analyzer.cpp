@@ -121,11 +121,11 @@ void test_is_symmetric() {
  */
 void test_is_spd() {
   std::cout << "\n--- Testing is_spd() ---\n";
-  const std::size_t n = 3;
+  const std::size_t m = 3;
 
   // Test 1: SPD matrix (diagonally dominant with positive diagonal)
   std::vector<double> A_spd = {4, 1, 0, 1, 4, 1, 0, 1, 4};
-  if (gms::is_spd(A_spd.data(), n)) {
+  if (gms::is_spd(A_spd.data(), 9, m)) {
     std::cout << "✅ Test Case 1 (SPD Matrix) Passed\n";
   } else {
     std::cerr << "❌ Test Case 1 (SPD Matrix) Failed\n";
@@ -133,7 +133,7 @@ void test_is_spd() {
 
   // Test 2: Symmetric but not positive definite (eigenvalues are 3 and -1)
   std::vector<double> A_sym_not_pd = {1, 2, 2, 1};
-  if (!gms::is_spd(A_sym_not_pd.data(), 2)) {
+  if (!gms::is_spd(A_sym_not_pd.data(), 2, 2)) {
     std::cout << "✅ Test Case 2 (Symmetric, Not PD) Passed\n";
   } else {
     std::cerr << "❌ Test Case 2 (Symmetric, Not PD) Failed\n";
@@ -141,7 +141,7 @@ void test_is_spd() {
 
   // Test 3: Non-symmetric matrix
   std::vector<double> A_nonsym = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-  if (!gms::is_spd(A_nonsym.data(), n)) {
+  if (!gms::is_spd(A_nonsym.data(), 9, 3)) {
     std::cout << "✅ Test Case 3 (Non-Symmetric) Passed\n";
   } else {
     std::cerr << "❌ Test Case 3 (Non-Symmetric) Failed\n";
