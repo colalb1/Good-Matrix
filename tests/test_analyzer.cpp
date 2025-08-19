@@ -308,7 +308,8 @@ void test_rank_estimate_cpqr() {
   // Test 3: 1x1 zero matrix (rank 0)
   std::vector<double> A_1x1_zero = {0.0};
   std::vector<double> A_1x1_zero_copy = A_1x1_zero;
-  size_t rank_1x1_zero = gms::rank_estimate_cpqr(A_1x1_zero_copy.data(), 1, tol);
+  size_t rank_1x1_zero =
+      gms::rank_estimate_cpqr(A_1x1_zero_copy.data(), 1, tol);
   if (rank_1x1_zero == 0) {
     std::cout << "✅ Test Case 3 (1x1 Zero Rank) Passed\n";
   } else {
@@ -322,13 +323,14 @@ void test_rank_estimate_cpqr() {
   for (size_t i = 0; i < n_id; ++i)
     A_identity[i * n_id + i] = 1.0;
   std::vector<double> A_identity_copy = A_identity;
-  size_t rank_identity = gms::rank_estimate_cpqr(A_identity_copy.data(), n_id, tol);
+  size_t rank_identity =
+      gms::rank_estimate_cpqr(A_identity_copy.data(), n_id, tol);
   if (rank_identity == n_id) {
-    std::cout << "✅ Test Case 4 (Identity Matrix) Passed: Expected "
-              << n_id << ", got " << rank_identity << "\n";
+    std::cout << "✅ Test Case 4 (Identity Matrix) Passed: Expected " << n_id
+              << ", got " << rank_identity << "\n";
   } else {
-    std::cerr << "❌ Test Case 4 (Identity Matrix) Failed: Expected "
-              << n_id << ", got " << rank_identity << "\n";
+    std::cerr << "❌ Test Case 4 (Identity Matrix) Failed: Expected " << n_id
+              << ", got " << rank_identity << "\n";
   }
 
   // Test 5: Full rank 3x3 matrix
@@ -338,13 +340,14 @@ void test_rank_estimate_cpqr() {
   const std::size_t n_full = 3;
   std::vector<double> A_full_rank = {1, 2, 3, 0, 1, 2, 0, 0, 1};
   std::vector<double> A_full_rank_copy = A_full_rank;
-  size_t rank_full = gms::rank_estimate_cpqr(A_full_rank_copy.data(), n_full, tol);
+  size_t rank_full =
+      gms::rank_estimate_cpqr(A_full_rank_copy.data(), n_full, tol);
   if (rank_full == n_full) {
-    std::cout << "✅ Test Case 5 (Full Rank Matrix) Passed: Expected "
-              << n_full << ", got " << rank_full << "\n";
+    std::cout << "✅ Test Case 5 (Full Rank Matrix) Passed: Expected " << n_full
+              << ", got " << rank_full << "\n";
   } else {
-    std::cerr << "❌ Test Case 5 (Full Rank Matrix) Failed: Expected "
-              << n_full << ", got " << rank_full << "\n";
+    std::cerr << "❌ Test Case 5 (Full Rank Matrix) Failed: Expected " << n_full
+              << ", got " << rank_full << "\n";
   }
 
   // Test 6: Rank-deficient matrix (rank 1)
@@ -354,12 +357,15 @@ void test_rank_estimate_cpqr() {
   const std::size_t n_deficient = 3;
   std::vector<double> A_rank_deficient = {1, 2, 3, 2, 4, 6, 3, 6, 9};
   std::vector<double> A_rank_deficient_copy = A_rank_deficient;
-  size_t rank_deficient = gms::rank_estimate_cpqr(A_rank_deficient_copy.data(), n_deficient, tol);
+  size_t rank_deficient =
+      gms::rank_estimate_cpqr(A_rank_deficient_copy.data(), n_deficient, tol);
   if (rank_deficient == 1) {
-    std::cout << "✅ Test Case 6 (Rank-Deficient Matrix - Rank 1) Passed: Expected 1, got "
+    std::cout << "✅ Test Case 6 (Rank-Deficient Matrix - Rank 1) Passed: "
+                 "Expected 1, got "
               << rank_deficient << "\n";
   } else {
-    std::cerr << "❌ Test Case 6 (Rank-Deficient Matrix - Rank 1) Failed: Expected 1, got "
+    std::cerr << "❌ Test Case 6 (Rank-Deficient Matrix - Rank 1) Failed: "
+                 "Expected 1, got "
               << rank_deficient << "\n";
   }
 
@@ -369,13 +375,94 @@ void test_rank_estimate_cpqr() {
   // [1 1 2] (row 1 + row 2)
   std::vector<double> A_rank_deficient2 = {1, 0, 1, 0, 1, 1, 1, 1, 2};
   std::vector<double> A_rank_deficient2_copy = A_rank_deficient2;
-  size_t rank_deficient2 = gms::rank_estimate_cpqr(A_rank_deficient2_copy.data(), n_deficient, tol);
+  size_t rank_deficient2 =
+      gms::rank_estimate_cpqr(A_rank_deficient2_copy.data(), n_deficient, tol);
   if (rank_deficient2 == 2) {
-    std::cout << "✅ Test Case 7 (Rank-Deficient Matrix - Rank 2) Passed: Expected 2, got "
+    std::cout << "✅ Test Case 7 (Rank-Deficient Matrix - Rank 2) Passed: "
+                 "Expected 2, got "
               << rank_deficient2 << "\n";
   } else {
-    std::cerr << "❌ Test Case 7 (Rank-Deficient Matrix - Rank 2) Failed: Expected 2, got "
+    std::cerr << "❌ Test Case 7 (Rank-Deficient Matrix - Rank 2) Failed: "
+                 "Expected 2, got "
               << rank_deficient2 << "\n";
+  }
+}
+
+bool vectors_nearly_equal(const std::vector<double> &a,
+                          const std::vector<double> &b, double tol = 1e-9) {
+  if (a.size() != b.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < a.size(); ++i) {
+    if (!nearly_equal(a[i], b[i], tol)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * @brief Tests for the least_squares() function.
+ * Checks overdetermined, square, rank-deficient, and underdetermined systems.
+ */
+void test_least_squares() {
+  std::cout << "\n--- Testing least_squares() ---\n";
+
+  // Test 1: Overdetermined system (3x2) with a known solution
+  const std::size_t m1 = 3, n1 = 2;
+  std::vector<double> A1 = {1, 1, 1, 2, 1, 3}; // A = [[1, 1], [1, 2], [1, 3]]
+  std::vector<double> b1 = {6, 5, 7};
+  std::vector<double> x1(n1);
+  std::vector<double> expected_x1 = {5.0, 0.5};
+
+  bool success1 = gms::least_squares(A1.data(), b1.data(), x1.data(), m1, n1);
+  if (success1 && vectors_nearly_equal(x1, expected_x1, 1e-8)) {
+    std::cout << "✅ Test Case 1 (Overdetermined Full Rank) Passed\n";
+  } else {
+    std::cerr << "❌ Test Case 1 (Overdetermined Full Rank) Failed\n";
+  }
+
+  // Test 2: Square system (2x2)
+  const std::size_t m2 = 2, n2 = 2;
+  std::vector<double> A2 = {2, 1, 1, 2}; // A = [[2, 1], [1, 2]]
+  std::vector<double> b2 = {1, -1};
+  std::vector<double> x2(n2);
+  std::vector<double> expected_x2 = {1.0, -1.0};
+
+  bool success2 = gms::least_squares(A2.data(), b2.data(), x2.data(), m2, n2);
+  if (success2 && vectors_nearly_equal(x2, expected_x2, 1e-8)) {
+    std::cout << "✅ Test Case 2 (Square Full Rank) Passed\n";
+  } else {
+    std::cerr << "❌ Test Case 2 (Square Full Rank) Failed\n";
+  }
+
+  // Test 3: Rank-deficient system (should fail)
+  const std::size_t m3 = 3, n3 = 2;
+  // Column 2 is 2 * Column 1
+  std::vector<double> A3 = {1, 2, 2, 4, 3, 6};
+  std::vector<double> b3 = {1, 1, 1};
+  std::vector<double> x3(n3);
+
+  bool success3 = gms::least_squares(A3.data(), b3.data(), x3.data(), m3, n3);
+  if (!success3) {
+    std::cout << "✅ Test Case 3 (Rank-Deficient) Passed\n";
+  } else {
+    std::cerr << "❌ Test Case 3 (Rank-Deficient) Failed: Expected failure but "
+                 "got success\n";
+  }
+
+  // Test 4: Underdetermined system (m < n, should fail)
+  const std::size_t m4 = 2, n4 = 3;
+  std::vector<double> A4 = {1, 2, 3, 4, 5, 6};
+  std::vector<double> b4 = {1, 1};
+  std::vector<double> x4(n4);
+
+  bool success4 = gms::least_squares(A4.data(), b4.data(), x4.data(), m4, n4);
+  if (!success4) {
+    std::cout << "✅ Test Case 4 (Underdetermined) Passed\n";
+  } else {
+    std::cerr << "❌ Test Case 4 (Underdetermined) Failed: Expected failure "
+                 "but got success\n";
   }
 }
 
@@ -390,6 +477,7 @@ int main() {
   test_is_diagonally_dominant();
   test_condition_estimate();
   test_rank_estimate_cpqr();
+  test_least_squares();
 
   return 0;
 }
