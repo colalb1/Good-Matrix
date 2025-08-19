@@ -390,4 +390,85 @@ std::size_t rank_estimate_cpqr(T *A, std::size_t n,
   return rank;
 }
 
+/**
+ * @brief Solves the least-squares problem min ||Ax - b||_2 for a general m x n
+ * matrix A.
+ * @details This function uses the method of normal equations, solving A^T A x =
+ * A^T b. The resulting n x n system is solved using Cholesky decomposition.
+ * This method is most suitable for well-conditioned matrices A where m >= n and
+ * A has full column rank.
+ * @param A Pointer to the m x n matrix data (row-major).
+ * @param b Pointer to the m x 1 vector data.
+ * @param x Pointer to the n x 1 solution vector (output).
+ * @param m Number of rows in A (number of equations).
+ * @param n Number of columns in A (number of variables).
+ * @param tol Tolerance for Cholesky decomposition.
+ * @return true if a unique solution is found, false otherwise (e.g., if A is
+ * rank-deficient).
+ */
+template <class T>
+bool least_squares(const T *A, const T *b, T *x, std::size_t m, std::size_t n,
+                   T tol = std::numeric_limits<T>::epsilon()) {
+  static_assert(std::is_floating_point_v<T>,
+                "least_squares: T must be floating point");
+
+  // Must be overdetermined for least-squares
+  if (m < n)
+    return false;
+
+  // C = A^T * A normal matrix
+  std::vector<T> C(n * n);
+  std::vector<std::size_t> col_indices(n);
+  std::iota(col_indices.begin(), col_indices.end(), 0);
+
+  std::for_each(std::execution::par, col_indices.begin(), col_indices.end(),
+                [&](std::size_t i) {
+                  for (std::size_t j = i; j < n; ++j) {
+                    T sum = T(0);
+
+                    for (std::size_t k = 0; k < m; ++k) {
+                      sum += A[k * n + i] * A[k * n + j];
+                    }
+                    C[i * n + j] = sum;
+                  }
+                });
+
+  // Fill the lower triangle
+  for (std::size_t i = 0; i < n; ++i) {
+    for (std::size_t j = i + 1; j < n; ++j) {
+      C[j * n + i] = C[i * n + j];
+    }
+  }
+
+  // d = A^T * b (an n x 1 vector)
+  std::vector<T> d(n);
+
+  std::for_each(std::execution::par, col_indices.begin(), col_indices.end(),
+                [&](std::size_t i) {
+                  T sum = T(0);
+
+                  for (std::size_t k = 0; k < m; ++k) {
+                    sum += A[k * n + i] * b[k];
+                  }
+                  d[i] = sum;
+                });
+
+  // C * x = d via Cholesky 
+  // C is modified in-place
+  if (!gms::cholesky_inplace_lower(C.data(), n, n, tol)) {
+    // A^T * A is not positive definite, indicating A is rank-deficient.
+    return false;
+  }
+
+  // 4. Solve L * y = d using forward substitution
+  std::vector<T> y(n);
+  gms::forward_subst_lower(C.data(), n, n, d.data(), y.data());
+
+  // 5. Solve L^T * x = y using backward substitution
+  // The result is written directly into the output pointer x.
+  gms::backward_subst_upper_from_lower_transpose(C.data(), n, n, y.data(), x);
+
+  return true;
+}
+
 } // namespace gms
