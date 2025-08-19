@@ -456,16 +456,16 @@ bool least_squares(const T *A, const T *b, T *x, std::size_t m, std::size_t n,
   // C * x = d via Cholesky 
   // C is modified in-place
   if (!gms::cholesky_inplace_lower(C.data(), n, n, tol)) {
-    // A^T * A is not positive definite, indicating A is rank-deficient.
+    // C is not positive definite \implies C is rank-deficient
     return false;
   }
 
-  // 4. Solve L * y = d using forward substitution
+  // L * y = d via forward substitution
   std::vector<T> y(n);
   gms::forward_subst_lower(C.data(), n, n, d.data(), y.data());
 
-  // 5. Solve L^T * x = y using backward substitution
-  // The result is written directly into the output pointer x.
+  //  L^T * x = y via backward substitution
+  // Written directly to C
   gms::backward_subst_upper_from_lower_transpose(C.data(), n, n, y.data(), x);
 
   return true;
