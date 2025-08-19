@@ -421,17 +421,16 @@ bool least_squares(const T *A, const T *b, T *x, std::size_t m, std::size_t n,
   std::vector<std::size_t> col_indices(n);
   std::iota(col_indices.begin(), col_indices.end(), 0);
 
-  std::for_each(std::execution::par, col_indices.begin(), col_indices.end(),
-                [&](std::size_t i) {
-                  for (std::size_t j = i; j < n; ++j) {
-                    T sum = T(0);
+  std::for_each(col_indices.begin(), col_indices.end(), [&](std::size_t i) {
+    for (std::size_t j = i; j < n; ++j) {
+      T sum = T(0);
 
-                    for (std::size_t k = 0; k < m; ++k) {
-                      sum += A[k * n + i] * A[k * n + j];
-                    }
-                    C[i * n + j] = sum;
-                  }
-                });
+      for (std::size_t k = 0; k < m; ++k) {
+        sum += A[k * n + i] * A[k * n + j];
+      }
+      C[i * n + j] = sum;
+    }
+  });
 
   // Fill the lower triangle
   for (std::size_t i = 0; i < n; ++i) {
@@ -443,17 +442,16 @@ bool least_squares(const T *A, const T *b, T *x, std::size_t m, std::size_t n,
   // d = A^T * b (an n x 1 vector)
   std::vector<T> d(n);
 
-  std::for_each(std::execution::par, col_indices.begin(), col_indices.end(),
-                [&](std::size_t i) {
-                  T sum = T(0);
+  std::for_each(col_indices.begin(), col_indices.end(), [&](std::size_t i) {
+    T sum = T(0);
 
-                  for (std::size_t k = 0; k < m; ++k) {
-                    sum += A[k * n + i] * b[k];
-                  }
-                  d[i] = sum;
-                });
+    for (std::size_t k = 0; k < m; ++k) {
+      sum += A[k * n + i] * b[k];
+    }
+    d[i] = sum;
+  });
 
-  // C * x = d via Cholesky 
+  // C * x = d via Cholesky
   // C is modified in-place
   if (!gms::cholesky_inplace_lower(C.data(), n, n, tol)) {
     // C is not positive definite \implies C is rank-deficient
@@ -462,7 +460,7 @@ bool least_squares(const T *A, const T *b, T *x, std::size_t m, std::size_t n,
 
   // L * y = d via forward substitution
   std::vector<T> y(n);
-  gms::forward_subst_lower(C.data(), n, n, d.data(), y.data());
+  gms::forward_subst_lower_unitdiag_false(C.data(), n, n, d.data(), y.data());
 
   //  L^T * x = y via backward substitution
   // Written directly to C
