@@ -99,40 +99,109 @@ SolverConfig route(const MatrixFeatures &features, SolverGoal goal) {
     if (features.is_spd) {
       config.method = SolverMethod::CG;
 
-      // Choose preconditioner based on condition number
+      // Choose preconditioner based on multiple matrix properties
       if (features.condition_estimate > CONDITION_THRESHOLD_SEVERE) {
+        // For severely ill-conditioned matrices, ILU(0) has stronger preconditioning
         config.precond = Preconditioner::ILU0;
 
         rationale << "Chose Sparse CG+ILU(0): SPD=true, density="
                   << features.density << ", κ≈" << features.condition_estimate
                   << " (severe ill-conditioning). ";
-      } else {
-        // For mild ill-conditioning or well-conditioned, use Jacobi
-        // This is a simplification for the test cases
-        config.precond = Preconditioner::JACOBI;
+      } else if (features.condition_estimate > CONDITION_THRESHOLD_MILD) {
+        // For moderately ill-conditioned matrices
+        if (features.is_diagonally_dominant) {
+          // Diagonal dominance makes Jacobi more effective
+          config.precond = Preconditioner::JACOBI;
 
-        rationale << "Chose Sparse CG+Jacobi: SPD=true, density="
-                  << features.density << ", κ≈" << features.condition_estimate
-                  << ". ";
+          rationale << "Chose Sparse CG+Jacobi: SPD=true, density="
+                    << features.density << ", κ≈" << features.condition_estimate
+                    << " (moderate ill-conditioning, diagonally dominant). ";
+        } else {
+          // Non-diagonally dominant matrices benefit from ILU(0)
+          config.precond = Preconditioner::ILU0;
+
+          rationale
+              << "Chose Sparse CG+ILU(0): SPD=true, density="
+              << features.density << ", κ≈" << features.condition_estimate
+              << " (moderate ill-conditioning, not diagonally dominant). ";
+        }
+      } else {
+        // For well-conditioned matrices
+        if (features.density < VERY_SPARSE_THRESHOLD) {
+          // Very sparse matrices benefit from Jacobi due to low setup cost
+          config.precond = Preconditioner::JACOBI;
+
+          rationale << "Chose Sparse CG+Jacobi: SPD=true, density="
+                    << features.density << ", κ≈" << features.condition_estimate
+                    << " (well-conditioned, very sparse). ";
+        } else if (features.is_diagonally_dominant) {
+          // Diagonal dominance makes Jacobi very effective
+          config.precond = Preconditioner::JACOBI;
+
+          rationale << "Chose Sparse CG+Jacobi: SPD=true, density="
+                    << features.density << ", κ≈" << features.condition_estimate
+                    << " (well-conditioned, diagonally dominant). ";
+        } else {
+          // For other well-conditioned matrices, no preconditioner may be sufficient
+          config.precond = Preconditioner::NONE;
+
+          rationale << "Chose Sparse CG: SPD=true, density=" << features.density
+                    << ", κ≈" << features.condition_estimate
+                    << " (well-conditioned). ";
+        }
       }
     } else {
       config.method = SolverMethod::GMRES;
 
-      // Choose preconditioner based on condition number
+      // Choose preconditioner based on multiple matrix properties
       if (features.condition_estimate > CONDITION_THRESHOLD_SEVERE) {
         config.precond = Preconditioner::ILU0;
 
         rationale << "Chose Sparse GMRES+ILU(0): General matrix, density="
                   << features.density << ", κ≈" << features.condition_estimate
                   << " (severe ill-conditioning). ";
-      } else {
-        // For mild ill-conditioning or well-conditioned, use Jacobi
-        // This is a simplification for the test cases
-        config.precond = Preconditioner::JACOBI;
+      } else if (features.condition_estimate > CONDITION_THRESHOLD_MILD) {
+        // For moderately ill-conditioned matrices
+        if (features.is_diagonally_dominant) {
+          // Diagonal dominance makes Jacobi more effective
+          config.precond = Preconditioner::JACOBI;
 
-        rationale << "Chose Sparse GMRES+Jacobi: General matrix, density="
-                  << features.density << ", κ≈" << features.condition_estimate
-                  << ". ";
+          rationale << "Chose Sparse GMRES+Jacobi: General matrix, density="
+                    << features.density << ", κ≈" << features.condition_estimate
+                    << " (moderate ill-conditioning, diagonally dominant). ";
+        } else {
+          // Non-symmetric, non-diagonally dominant matrices benefit from ILU(0)
+          config.precond = Preconditioner::ILU0;
+
+          rationale
+              << "Chose Sparse GMRES+ILU(0): General matrix, density="
+              << features.density << ", κ≈" << features.condition_estimate
+              << " (moderate ill-conditioning, not diagonally dominant). ";
+        }
+      } else {
+        // For well-conditioned matrices
+        if (features.density < VERY_SPARSE_THRESHOLD) {
+          // Very sparse matrices benefit from Jacobi due to its lower setup cost
+          config.precond = Preconditioner::JACOBI;
+
+          rationale << "Chose Sparse GMRES+Jacobi: General matrix, density="
+                    << features.density << ", κ≈" << features.condition_estimate
+                    << " (well-conditioned, very sparse). ";
+        } else if (features.is_diagonally_dominant) {
+          // Diagonal dominance makes Jacobi very effective
+          config.precond = Preconditioner::JACOBI;
+
+          rationale << "Chose Sparse GMRES+Jacobi: General matrix, density="
+                    << features.density << ", κ≈" << features.condition_estimate
+                    << " (well-conditioned, diagonally dominant). ";
+        } else {
+          // For other well-conditioned matrices, GMRES often needs some preconditioning
+          config.precond = Preconditioner::JACOBI;
+
+          rationale << "Chose Sparse GMRES+Jacobi: General matrix, density="
+                    << features.density << ", κ≈" << features.condition_estimate
+                    << " (well-conditioned, general case). ";
+        }
       }
     }
   }
