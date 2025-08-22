@@ -72,7 +72,7 @@ The solver automatically analyzes the following matrix properties to determine t
 
 - **Density**: Ratio of non-zero elements to total elements (threshold: 0.1)
 - **Symmetry**: Whether A[i,j] = A[j,i] for all i,j
-- **Positive definiteness**: For symmetric matrices, whether $x^T\dotA·\dotx > 0$ for all non-zero x
+- **Positive definiteness**: For symmetric matrices, whether $x^T·A·\dotx > 0$ for all non-zero x
 - **Bandwidth**: Maximum distance from diagonal with non-zero elements
 - **Condition number**: Estimated using power iteration or other methods
 - **Diagonal dominance**: Whether $|A[i,i]| > \sum|A[i,j]|$ for all $i\neq j$.
