@@ -7,7 +7,7 @@ Stub project scaffolding for general matrix solver library in C++23 with Python 
 
 Contains the Python API for the Good-Matrix library, a high-performance system of equations solver that automatically detects matrix properties and routes to the most efficient solver.
 
-Some methods remain unwritten. I may come back to this eventually.
+Some methods remain unwritten. I may come back to this eventually. Partway through this project, I realized it was a bit foolish since the checks added enough computational overhead to cancel whatever speed improvements would be had with the most efficient solve, rendering this of little pragmatic usefulness.
 
 ## API Overview
 
