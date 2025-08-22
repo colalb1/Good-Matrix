@@ -79,10 +79,6 @@ py::tuple solve_wrapper(py::array_t<T> A, py::array_t<T> b,
     throw std::runtime_error("b must have the same number of rows as A");
   }
 
-  // Determine if A is sparse (this is a placeholder - in a real implementation,
-  // we would check the actual sparsity or accept a sparse matrix format)
-  bool is_sparse = false;
-
   // Create output array for x
   py::array_t<T> x(n);
   py::buffer_info x_info = x.request();
@@ -91,6 +87,24 @@ py::tuple solve_wrapper(py::array_t<T> A, py::array_t<T> b,
   T *A_ptr = static_cast<T *>(A_info.ptr);
   T *b_ptr = static_cast<T *>(b_info.ptr);
   T *x_ptr = static_cast<T *>(x_info.ptr);
+
+  // Determine if A is sparse by checking the density
+  bool is_sparse = false;
+  const T eps = std::numeric_limits<T>::epsilon();
+  std::size_t nnz = 0;
+
+  // Count non-zero elements
+  for (std::size_t i = 0; i < m * n; ++i) {
+    if (std::abs(A_ptr[i]) > eps) {
+      nnz++;
+    }
+  }
+
+  // Calculate density
+  double density = static_cast<double>(nnz) / (m * n);
+
+  // Consider sparse if density is below 10%
+  is_sparse = (density < 0.1);
 
   // Solve the system
   gms::SolverReport report =
