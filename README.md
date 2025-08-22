@@ -3,13 +3,13 @@ A high-performance C++ matrix meta-solver.
 
 Stub project scaffolding for general matrix solver library in C++23 with Python bindings.
 
-# Good-Matrix Python API
+## Good-Matrix Python API
 
 Contains the Python API for the Good-Matrix library, a high-performance system of equations solver that automatically detects matrix properties and routes to the most efficient solver.
 
 Some methods remain unwritten. I may come back to this eventually. Partway through this project, I realized it was a bit foolish since the checks added enough computational overhead to negate the speed improvements that the most efficient solve would yield, thus offering little practical benefit.
 
-## API Overview
+### API Overview
 
 The unified Python API provides a single entry point `solve()` that:
 1. Accepts both dense and sparse matrices
@@ -34,13 +34,13 @@ print(f"Method used: {report['method']}")
 print(f"Rationale: {report['rationale']}")
 ```
 
-## Function Signature
+### Function Signature
 
 ```python
 x, report = gms.solve(A, b, strategy="auto")
 ```
 
-### Parameters
+#### Parameters
 
 - `A`: Coefficient matrix. Must be a 2D NumPy array.
 - `b`: Right-hand side vector. Must be a 1D NumPy array with length equal to the number of rows in A.
@@ -51,7 +51,7 @@ x, report = gms.solve(A, b, strategy="auto")
   - `"speed"`: Optimize for speed
   - `"accuracy"`: Optimize for accuracy
 
-### Returns
+#### Returns
 
 - `x`: Solution vector as a NumPy array
 - `report`: Dictionary containing information about the solve process:
@@ -66,7 +66,7 @@ x, report = gms.solve(A, b, strategy="auto")
   - `rationale`: Explanation of solver selection
   - `success`: Whether the solve was successful
 
-## Matrix Properties Detection
+### Matrix Properties Detection
 
 The solver automatically analyzes the following matrix properties to determine the most efficient solver:
 
@@ -79,7 +79,7 @@ The solver automatically analyzes the following matrix properties to determine t
 - **Rank deficiency**: Whether the matrix has linearly dependent columns
 - **Least squares problem**: Detected for non-square matrices (m > n)
 
-## Routing Mechanism
+### Routing Mechanism
 
 The solver uses a sophisticated routing algorithm that:
 
@@ -104,18 +104,18 @@ The solver uses a sophisticated routing algorithm that:
    - "speed" → May use mixed precision when safe
    - "accuracy" → Always uses double precision
 
-## Performance Considerations
+### Performance Considerations
 
 - **Automatic precision selection**: Uses mixed precision for well-conditioned problems when speed is prioritized
 - **Preconditioner selection**: Automatically chooses between None, Jacobi, and ILU(0) based on matrix properties
 - **Memory efficiency**: Sparse storage formats for sparse matrices
 - **Specialized algorithms**: Uses optimized algorithms for special matrix structures (tridiagonal, banded)
 
-## Examples
+### Examples
 
 See `example_solve.py` for complete examples of using the API with different types of matrices and solver strategies.
 
-## Solver Report Details
+### Solver Report Details
 
 The `report` dictionary returned by `solve()` contains:
 
